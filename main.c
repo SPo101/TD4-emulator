@@ -154,7 +154,6 @@ int main(){
 				TD4.PC = data;
 				TD4.PC --;
 			}
-			//TD4.CF = 0x00;
 			break;
 
 		case 0x20:
