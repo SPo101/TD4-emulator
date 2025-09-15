@@ -74,8 +74,6 @@ int main(){
 	buf[1] = '\0';
 	size_t len = 0;
 	ssize_t read = 0;
-	
-
 
 	read_opcode(mem);
 
@@ -88,8 +86,9 @@ int main(){
 		print_console(&TD4, mem);
 
 		if((instruction == 0x20) || (instruction == 0x60)){
-			printf("\033[0m\033[2K\r%2d | "BYTE_TO_BINARY_PATTERN \
+			printf("\033[%dm\033[2K\r%2d | "BYTE_TO_BINARY_PATTERN \
 					"\t\033[32mEnter input: ", \
+					(MEM_SIZE-1 == TD4.PC) ? 31 : 0, \
 					MEM_SIZE-1, BYTE_TO_BINARY(*(mem+MEM_SIZE-1)));
 
 			read = getline(&input, &len, stdin);
@@ -105,11 +104,8 @@ int main(){
 		
 		printf("\033[%dA\r", MEM_SIZE);
 		
-
-
-
 		
-		
+
 
 		switch( instruction ){
 		case 0x00:
@@ -182,6 +178,7 @@ int main(){
 		sleep(1);
 		TD4.PC++;	
 		TD4.PC %= MEM_SIZE;
+
 			
 	}
 
@@ -203,7 +200,6 @@ void read_opcode(unsigned char *mem){
 	}
 	free(str);
 }
-
 
 void print_console(registers *TD4, unsigned char *mem){
 
