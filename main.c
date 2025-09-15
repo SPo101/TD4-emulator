@@ -63,6 +63,8 @@ int main(){
 	TD4.input = 0x00;
 	TD4.output = 0x00;
 	
+	unsigned char cnt_cf = 0x00;
+	
 
 	unsigned char *mem = calloc(MEM_SIZE, 1);
 	unsigned char instruction;
@@ -113,6 +115,7 @@ int main(){
 			if( TD4.A >= 0x10){
 				TD4.A &= 0x0f;
 				TD4.CF = 0x01;
+				cnt_cf = 0x02;
 			}
 			break;
 
@@ -121,6 +124,7 @@ int main(){
 			if( TD4.B >= 0x10){
 				TD4.B &= 0x0f;
 				TD4.CF = 0x01;
+				cnt_cf = 0x02;
 			}
 			break;
 
@@ -149,8 +153,8 @@ int main(){
 			if(!TD4.CF){
 				TD4.PC = data;
 				TD4.PC --;
-				TD4.CF = 0x00;
 			}
+			//TD4.CF = 0x00;
 			break;
 
 		case 0x20:
@@ -174,6 +178,12 @@ int main(){
 		}
 
 
+		if(cnt_cf < 0)
+			cnt_cf = 0;
+		if(!cnt_cf)
+			TD4.CF = 0x00;
+
+		cnt_cf--;
 
 		sleep(1);
 		TD4.PC++;	
