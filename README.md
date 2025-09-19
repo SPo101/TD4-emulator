@@ -11,3 +11,17 @@ Here some programs for TD4:
 | 20000fe75ff2005f90f0000000000000 | reverse bits   |
 |----------------------------------|----------------|
 | 20600fef51f200000000000000000090 | sum of A and B |
+|----------------------------------|----------------|
+| 33054f9ff00000000000000000000000 | 8 to 6         |
+
+
+Principle scheme of TD4
+![[./pic/cpu.png]]
+![[./pic/input.png]]
+
+
+Unoffisial opcode 
+1000 - add a number to B register, write into OUT.
+1010 - add a number to ZERO, write into OUT.
+1100 - add a number to B register, write into PC if there is no CF.
+1101 - add a number to B register, write into PC.
