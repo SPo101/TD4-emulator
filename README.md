@@ -15,7 +15,8 @@ Line of code that is executed rigth now will be highlited by red. When processor
 | 33054f9ff00000000000000000000000 | 8 to 6         |
 
 
-### Principle scheme of TD4
+### Principle and block schemes of TD4
+<img src="pic/block.png" alt="CPU itself" width="50%">
 <img src="pic/cpu.png" alt="CPU itself" width="50%">
 <img src="pic/input.png" alt="CPU itself" width="50%">
 
