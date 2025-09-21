@@ -2,6 +2,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <getopt.h>
+#include <dlfcn.h>
+#include <signal.h>
+#include <sys/types.h>
+#include <time.h>
 
 #define MEM_SIZE 16 // 16 bytes;
 
@@ -53,12 +58,23 @@ typedef struct {
 } registers;
 
 
-unsigned char togglebit(unsigned char, int);
-void read_opcode(unsigned char *);
-void print_console(registers *, unsigned char *);
-void opcode_decode(unsigned char *, registers *); //instr all_reg
+int stopped = 0;
 
-int main(){
+unsigned char togglebit(unsigned char, int);
+void read_str_opcode(unsigned char *);
+
+//void read_bin_opcode(unsigned char *);
+
+void print_console(registers *, unsigned char *);
+void opcode_decode(unsigned char *, registers *);
+int read_args(int, char *[]);
+void usage();
+void input_data(unsigned char *, registers *, unsigned char *, int);
+void sig_handler(int);
+
+
+
+int main(int argc, char *argv[]){
 	
 	registers TD4;
 	
@@ -78,17 +94,19 @@ int main(){
 	unsigned char instruction;
 	unsigned char data;
 
-	char *input = NULL;
-	char buf[2];
-	buf[0] = 0x00;
-	buf[1] = '\0';
-	size_t len = 0;
-	ssize_t read = 0;
 
-	read_opcode(mem);
+	signal(SIGTSTP, sig_handler);
 
+	int auto_ = read_args(argc, argv);
+	read_str_opcode(mem);
+
+
+	printf("\033[38;5;199m<Ctrl> + <z> to stop/continue\033[0m\n");
 
 	for(;;){
+
+		if(stopped)
+			continue;
 			
 		instruction = *(mem+TD4.PC) & 0xf0;
 		data = *(mem+TD4.PC) & 0x0f;
@@ -96,23 +114,7 @@ int main(){
 
 		print_console(&TD4, mem);
 
-
-		if((instruction == 0x20) || (instruction == 0x60)){
-			printf("\033[%dm\033[2K\r%2d | "BYTE_TO_BINARY_PATTERN \
-					"\t\033[32mEnter input: ", \
-					(MEM_SIZE-1 == TD4.PC) ? 31 : 0, \
-					MEM_SIZE-1, BYTE_TO_BINARY(*(mem+MEM_SIZE-1)));
-
-			read = getline(&input, &len, stdin);
-			if(input[read-1] == '\n'){
-				input[read-1] = '\0';
-				read--;
-			}
-			printf("\033[%dA\r", 1);
-	
-			memcpy(&buf, input, 1);
-			sscanf(buf, "%x", &TD4.input);
-		}
+		input_data(&instruction, &TD4, mem, auto_);
 
 		printf("\033[%dA\r", MEM_SIZE);
 
@@ -137,21 +139,15 @@ int main(){
 		if(TD4.cnt_cf <= 0x00){
 			TD4.CF = 0x00;
 			TD4.cnt_cf = 0x00;
-		}
-
-	
-		
-			
+		}	
 	}
-
-	free(input);
 }
 
 unsigned char togglebit(unsigned char num, int pos){
 	return num ^ (1<<pos);
 }
 
-void read_opcode(unsigned char *mem){
+void read_str_opcode(unsigned char *mem){
 	size_t size = 0;
 	char *str = NULL;
 	char str2[2];
@@ -255,10 +251,89 @@ void opcode_decode(unsigned char *instruction, registers *TD4){
 			TD4->load_register = &TD4->PC;
 			break;
 	}
-		
-	
-
-
-	
 }
 
+int read_args(int cnt_args, char *args[]){
+
+	if(cnt_args == 1)
+		usage();	
+
+	int Option = 0; 
+	int Option_index = 0;
+
+
+	static struct option Long_options[] = {
+		{"auto", 	no_argument, 	0, 'a'},
+		{"hand", 	no_argument, 	0, 'h'},
+	};
+	static char *Short_options = "ah";
+
+	while(1){
+		Option = getopt_long(cnt_args, args, Short_options, Long_options, &Option_index);
+		if(Option == -1)
+			break;
+		
+		switch(Option){
+			case 0:
+				//for long args;
+				break;
+			case 'a':
+				return 1;
+				break;
+			case 'h':
+				return 0;
+				break;
+		}
+	}
+	return 1;
+}
+
+void input_data(unsigned char *instruction, registers *TD4, unsigned char *mem, int mode){
+
+	char *input = NULL;
+	char buf[2];
+	buf[0] = 0x00;
+	buf[1] = '\0';
+	size_t len = 0;
+	ssize_t read = 0;
+	int color = 32;
+	int exec = 1;
+
+
+	if((*instruction == 0x20) || (*instruction == 0x60)){
+		get_input:
+			printf("\033[%dm\033[2K\r%2d | "BYTE_TO_BINARY_PATTERN \
+					"\t\033[%dmEnter input: ", \
+					(MEM_SIZE-1 == TD4->PC) ? 31 : 0, \
+					MEM_SIZE-1, BYTE_TO_BINARY(*(mem+MEM_SIZE-1)), color);
+
+			read = getline(&input, &len, stdin);
+			if(input[read-1] == '\n'){
+				input[read-1] = '\0';
+				read--;
+			}
+			printf("\033[%dA\r", 1);
+	
+			memcpy(&buf, input, 1);
+			sscanf(buf, "%x", &TD4->input);
+			exec = 0;
+	}
+	//mode=1 for auto; mode=0 for hand
+	if((!mode) & exec){
+		color = 33;
+		goto get_input;
+	}
+
+	free(input);
+}
+
+
+void usage(){
+	printf("USaGE\n");
+	exit(1);
+}
+
+void sig_handler(int sig){
+		stopped++;
+		stopped %= 2;
+}

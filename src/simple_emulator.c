@@ -88,6 +88,7 @@ int main(){
 		print_console(&TD4, mem);
 
 		if((instruction == 0x20) || (instruction == 0x60)){
+
 			printf("\033[%dm\033[2K\r%2d | "BYTE_TO_BINARY_PATTERN \
 					"\t\033[32mEnter input: ", \
 					(MEM_SIZE-1 == TD4.PC) ? 31 : 0, \
