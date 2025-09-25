@@ -57,17 +57,22 @@ typedef struct {
 	unsigned char cnt_cf;
 } registers;
 
+typedef struct {
+	int mode; //auto/hand
+	//int opcode_enter; //str/bin file
+	char *path;
+} settings;
 
 int stopped = 0;
 
 unsigned char togglebit(unsigned char, int);
 void read_str_opcode(unsigned char *);
 
-//void read_bin_opcode(unsigned char *);
+void read_bin_opcode(unsigned char *, char *);
 
 void print_console(registers *, unsigned char *);
 void opcode_decode(unsigned char *, registers *);
-int read_args(int, char *[]);
+void read_args(int, char *[], settings *);
 void usage();
 void input_data(unsigned char *, registers *, unsigned char *, int);
 void sig_handler(int);
@@ -77,6 +82,7 @@ void sig_handler(int);
 int main(int argc, char *argv[]){
 	
 	registers TD4;
+	settings start_set;
 	
 	TD4.A = 0x00;
 	TD4.B = 0x00;
@@ -97,11 +103,15 @@ int main(int argc, char *argv[]){
 
 	signal(SIGTSTP, sig_handler);
 
-	int auto_ = read_args(argc, argv);
-	read_str_opcode(mem);
+	read_args(argc, argv, &start_set);
+
+	//if(start_set.opcode_enter)
+	if(start_set.path != NULL)
+		read_bin_opcode(mem, start_set.path);
+	else
+		read_str_opcode(mem);
 
 
-	printf("\033[38;5;199m<Ctrl> + <z> to stop/continue\033[0m\n");
 
 	for(;;){
 
@@ -114,7 +124,7 @@ int main(int argc, char *argv[]){
 
 		print_console(&TD4, mem);
 
-		input_data(&instruction, &TD4, mem, auto_);
+		input_data(&instruction, &TD4, mem, start_set.mode);
 
 		printf("\033[%dA\r", MEM_SIZE);
 
@@ -152,13 +162,31 @@ void read_str_opcode(unsigned char *mem){
 	char *str = NULL;
 	char str2[2];
 
+	printf("Enter opcode in hex format: ");
 	getline(&str, &size, stdin);
 	
 	for(int i=0; i<MEM_SIZE; i++){
 		memcpy(&str2, str+i*2, 2);
-		sscanf(str2, "%x", mem+i);
+		sscanf(str2, "%2hhx", mem+i);
 	}
 	free(str);
+}
+
+void read_bin_opcode(unsigned char *mem, char *path){
+	FILE *f = fopen(path, "rb");
+  if(f == NULL){
+    perror("Error with opening file:");
+    exit(1);
+  }
+
+  printf("Reading opcode from opcode.bin\n");
+  char *str = calloc(MEM_SIZE, 1);
+
+  for(int i=0; i<MEM_SIZE; i++){
+  	fread(mem+i, 1, 1, f);
+  }
+  free(str);
+  fclose(f);	
 }
 
 void print_console(registers *TD4, unsigned char *mem){
@@ -207,7 +235,6 @@ void print_console(registers *TD4, unsigned char *mem){
 	fflush(stdout);
 }
 
-
 void opcode_decode(unsigned char *instruction, registers *TD4){ 
 	unsigned char D4 = *instruction & 0x10; 
 	unsigned char D5 = *instruction & 0x20;
@@ -253,7 +280,7 @@ void opcode_decode(unsigned char *instruction, registers *TD4){
 	}
 }
 
-int read_args(int cnt_args, char *args[]){
+void read_args(int cnt_args, char *args[], settings *start_set){
 
 	if(cnt_args == 1)
 		usage();	
@@ -263,10 +290,13 @@ int read_args(int cnt_args, char *args[]){
 
 
 	static struct option Long_options[] = {
-		{"auto", 	no_argument, 	0, 'a'},
-		{"hand", 	no_argument, 	0, 'h'},
+		{"auto", 		no_argument, 				0, 'a'},
+		{"hand", 		no_argument, 				0, 'h'},
+		{"nofile", 	no_argument, 				0, 'n'},
+		{"help", 		no_argument, 				0, 	0 },
+		{"file", 		required_argument, 	0, 'f'},
 	};
-	static char *Short_options = "ah";
+	static char *Short_options = "ahnf:";
 
 	while(1){
 		Option = getopt_long(cnt_args, args, Short_options, Long_options, &Option_index);
@@ -275,17 +305,24 @@ int read_args(int cnt_args, char *args[]){
 		
 		switch(Option){
 			case 0:
-				//for long args;
+				usage();
 				break;
 			case 'a':
-				return 1;
+				start_set->mode = 1; //auto
 				break;
 			case 'h':
-				return 0;
+				start_set->mode = 0; //hand
+				break;
+			case 'n':
+				//start_set->opcode_enter = 0; //string
+				start_set->path = NULL;
+				break;
+			case 'f':
+				//start_set->opcode_enter = 1; //bin file
+				start_set->path = optarg;
 				break;
 		}
 	}
-	return 1;
 }
 
 void input_data(unsigned char *instruction, registers *TD4, unsigned char *mem, int mode){
@@ -315,7 +352,8 @@ void input_data(unsigned char *instruction, registers *TD4, unsigned char *mem, 
 			printf("\033[%dA\r", 1);
 	
 			memcpy(&buf, input, 1);
-			sscanf(buf, "%x", &TD4->input);
+			//sscanf(buf, "%x", &TD4->input);
+			sscanf(buf, "%2hhx", &TD4->input);
 			exec = 0;
 	}
 	//mode=1 for auto; mode=0 for hand
@@ -329,7 +367,16 @@ void input_data(unsigned char *instruction, registers *TD4, unsigned char *mem, 
 
 
 void usage(){
-	printf("USaGE\n");
+	printf("Usage:\n");
+	printf("-h --hand\t\tHand executed mode.\n");
+	printf("-a --auto\t\tAuto executed mode.\n");
+	printf("-n --nofile\t\tInput opcode from str.\n");
+	printf("-f --file <path>\tInput opcode from bin file.\n\n");
+
+	printf("Executed line will be highlited in \033[31mred\033[0m.\n");
+	printf("When prog is going to need in input, input will be highlited in \033[32mgreen\033[0m.\n");
+	printf("If you choose hand mode input will be highlited in \033[33myellow\033[0m. Press enter to make step.\n\n");
+	printf("<Ctrl> + <z> to stop/continue executing.\n\n");
 	exit(1);
 }
 
