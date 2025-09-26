@@ -67,9 +67,7 @@ int stopped = 0;
 
 unsigned char togglebit(unsigned char, int);
 void read_str_opcode(unsigned char *);
-
 void read_bin_opcode(unsigned char *, char *);
-
 void print_console(registers *, unsigned char *);
 void opcode_decode(unsigned char *, registers *);
 void read_args(int, char *[], settings *);
@@ -139,12 +137,14 @@ int main(int argc, char *argv[]){
 		
 		opcode_decode(&instruction, &TD4);
 
-		*TD4.load_register = *TD4.work_register + data;
+		if(TD4.load_register != NULL){
+			*TD4.load_register = *TD4.work_register + data;
 
-		if(*TD4.load_register >= 0x10){
-			*TD4.load_register &= 0x0f;
-			TD4.CF = 0x01;
-			TD4.cnt_cf = 0x02;
+			if(*TD4.load_register >= 0x10){
+				*TD4.load_register &= 0x0f;
+				TD4.CF = 0x01;
+				TD4.cnt_cf = 0x02;
+			}
 		}
 
 		if(TD4.load_register != &TD4.PC)
@@ -157,6 +157,7 @@ int main(int argc, char *argv[]){
 			TD4.CF = 0x00;
 			TD4.cnt_cf = 0x00;
 		}	
+
 
 		cycles_done++;
 		if(cycles_done < start_set.frequency)
@@ -305,6 +306,9 @@ void opcode_decode(unsigned char *instruction, registers *TD4){
 		case 0xe0: //PC
 			TD4->load_register = &TD4->PC;
 			break;
+		case 0xf0: //for JNC when C
+			TD4->load_register = NULL;
+			break;
 	}
 }
 
@@ -318,12 +322,12 @@ void read_args(int cnt_args, char *args[], settings *start_set){
 
 
 	static struct option Long_options[] = {
-		{"auto", 		no_argument, 				0, 'a'},
-		{"manual", 	no_argument, 				0, 'm'},
-		{"nofile", 	no_argument, 				0, 'n'},
-		{"file", 		required_argument, 	0, 'f'},
-		{"freq", 		required_argument, 	0, 	0 },
-		{"help", 		no_argument, 				0, 	0 },
+		{"auto",		no_argument,				0,	'a'},
+		{"manual",	no_argument,				0,	'm'},
+		{"nofile",	no_argument,				0,	'n'},
+		{"file",		required_argument,	0,	'f'},
+		{"freq",		required_argument,	0, 	0 },
+		{"help",		no_argument,				0, 	0 },
 	};
 	static char *Short_options = "amnf:";
 
