@@ -59,8 +59,8 @@ typedef struct {
 
 typedef struct {
 	int mode; //auto/hand
-	//int opcode_enter; //str/bin file
 	char *path;
+	int frequency;
 } settings;
 
 int stopped = 0;
@@ -81,8 +81,13 @@ void sig_handler(int);
 
 int main(int argc, char *argv[]){
 	
-	registers TD4;
 	settings start_set;
+
+	start_set.mode = 1;
+	start_set.path = NULL;
+	start_set.frequency = 1;
+
+	registers TD4;
 	
 	TD4.A = 0x00;
 	TD4.B = 0x00;
@@ -99,25 +104,28 @@ int main(int argc, char *argv[]){
 	unsigned char *mem = calloc(MEM_SIZE, 1);
 	unsigned char instruction;
 	unsigned char data;
-
+	struct timespec start, stop;
 
 	signal(SIGTSTP, sig_handler);
 
 	read_args(argc, argv, &start_set);
 
-	//if(start_set.opcode_enter)
 	if(start_set.path != NULL)
 		read_bin_opcode(mem, start_set.path);
 	else
 		read_str_opcode(mem);
 
 
-
+	int cycles_done = 0;
 	for(;;){
 
 		if(stopped)
 			continue;
 			
+
+	loop:
+		timespec_get(&start, TIME_UTC);
+
 		instruction = *(mem+TD4.PC) & 0xf0;
 		data = *(mem+TD4.PC) & 0x0f;
 
@@ -139,7 +147,6 @@ int main(int argc, char *argv[]){
 			TD4.cnt_cf = 0x02;
 		}
 
-		sleep(1);
 		if(TD4.load_register != &TD4.PC)
 			TD4.PC += 0x01;
 
@@ -150,6 +157,27 @@ int main(int argc, char *argv[]){
 			TD4.CF = 0x00;
 			TD4.cnt_cf = 0x00;
 		}	
+
+		cycles_done++;
+		if(cycles_done < start_set.frequency)
+			goto loop;
+		cycles_done = 0;
+
+
+		if(!start_set.frequency)//in manual mode, processor doesnt need to sleep.
+			continue;
+
+		timespec_get(&stop, TIME_UTC);
+		stop.tv_sec -= start.tv_sec;
+		if(stop.tv_sec)//if work of processor takes more than second, it doesnt need sleep.
+			continue;
+		stop.tv_nsec = 1000000000 - stop.tv_nsec + start.tv_nsec;//remaining time to sleep.
+
+		int res = nanosleep(&stop, NULL);
+
+		if(res == -1)
+			;//there should be handler if nanosleep was interrupted by signal
+
 	}
 }
 
@@ -179,7 +207,7 @@ void read_bin_opcode(unsigned char *mem, char *path){
     exit(1);
   }
 
-  printf("Reading opcode from opcode.bin\n");
+  printf("Reading opcode from %s\n", path);
   char *str = calloc(MEM_SIZE, 1);
 
   for(int i=0; i<MEM_SIZE; i++){
@@ -291,12 +319,13 @@ void read_args(int cnt_args, char *args[], settings *start_set){
 
 	static struct option Long_options[] = {
 		{"auto", 		no_argument, 				0, 'a'},
-		{"hand", 		no_argument, 				0, 'h'},
+		{"manual", 	no_argument, 				0, 'm'},
 		{"nofile", 	no_argument, 				0, 'n'},
-		{"help", 		no_argument, 				0, 	0 },
 		{"file", 		required_argument, 	0, 'f'},
+		{"freq", 		required_argument, 	0, 	0 },
+		{"help", 		no_argument, 				0, 	0 },
 	};
-	static char *Short_options = "ahnf:";
+	static char *Short_options = "amnf:";
 
 	while(1){
 		Option = getopt_long(cnt_args, args, Short_options, Long_options, &Option_index);
@@ -305,24 +334,27 @@ void read_args(int cnt_args, char *args[], settings *start_set){
 		
 		switch(Option){
 			case 0:
-				usage();
+				if(Option_index == 5)//help
+					usage();
+				if(Option_index == 4)//freq
+					start_set->frequency = atoi(optarg);
 				break;
 			case 'a':
 				start_set->mode = 1; //auto
 				break;
-			case 'h':
-				start_set->mode = 0; //hand
+			case 'm':
+				start_set->mode = 0; //manual
 				break;
 			case 'n':
-				//start_set->opcode_enter = 0; //string
 				start_set->path = NULL;
 				break;
 			case 'f':
-				//start_set->opcode_enter = 1; //bin file
 				start_set->path = optarg;
 				break;
 		}
 	}
+	if(!start_set->mode)//in manual mode the processor doesnt require frequency.
+		start_set->frequency = 0;
 }
 
 void input_data(unsigned char *instruction, registers *TD4, unsigned char *mem, int mode){
@@ -368,10 +400,12 @@ void input_data(unsigned char *instruction, registers *TD4, unsigned char *mem, 
 
 void usage(){
 	printf("Usage:\n");
-	printf("-h --hand\t\tHand executed mode.\n");
 	printf("-a --auto\t\tAuto executed mode.\n");
+	printf("-m --manual\t\tManual executed mode.\n");
 	printf("-n --nofile\t\tInput opcode from str.\n");
-	printf("-f --file <path>\tInput opcode from bin file.\n\n");
+	printf("-f --file\t<path>\tInput opcode from bin file.\n");
+	printf("-- --freq\t<cnt>\tEnter frequency of processor.\n");
+	printf("-- --help\n\n");
 
 	printf("Executed line will be highlited in \033[31mred\033[0m.\n");
 	printf("When prog is going to need in input, input will be highlited in \033[32mgreen\033[0m.\n");
