@@ -10,8 +10,10 @@
 
 #define MEM_SIZE 16 // 16 bytes;
 
-#define BYTE_TO_BINARY_PATTERN "%c%c%c%c%c%c%c%c"
-#define BYTE_TO_BINARY(byte)  \
+#define BYTE_TO_BINARY_PATTERN8 "%c%c%c%c%c%c%c%c"
+#define BYTE_TO_BINARY_PATTERN4 "%c%c%c%c"
+
+#define BYTE_TO_BINARY8(byte)  \
   ((byte) & 0x80 ? '1' : '0'), \
   ((byte) & 0x40 ? '1' : '0'), \
   ((byte) & 0x20 ? '1' : '0'), \
@@ -21,26 +23,13 @@
   ((byte) & 0x02 ? '1' : '0'), \
   ((byte) & 0x01 ? '1' : '0') 
 
+#define BYTE_TO_BINARY4(byte)  \
+  ((byte) & 0x08 ? '1' : '0'), \
+  ((byte) & 0x04 ? '1' : '0'), \
+  ((byte) & 0x02 ? '1' : '0'), \
+  ((byte) & 0x01 ? '1' : '0') 
 
-/*
-ADD A,Im - 0000_xxxx - 0x00 - V
-ADD B,Im - 0101_xxxx - 0x50 - V
 
-MOV A,Im - 0011_xxxx - 0x30 - V
-MOV B,Im - 0111_xxxx - 0x70 - V
-
-MOV A,B  - 0001_0000 - 0x10 - V
-MOV B,A  - 0100_0000 - 0x40 - V
-
-JMP Im   - 1111_xxxx - 0xf0 - V
-JNC Im   - 1110_xxxx - 0xe0 - V
-
-IN A     - 0010_0000 - 0x20 - V
-IN B     - 0110_0000 - 0x60 - V
-
-OUT B     - 1001_0000 - 0x90 - V
-OUT Im    - 1011_xxxx - 0xb0 - V
-*/
 
 typedef struct {
 	unsigned char A;
@@ -120,9 +109,9 @@ int main(int argc, char *argv[]){
 		if(stopped)
 			continue;
 			
+		timespec_get(&start, TIME_UTC);
 
 	loop:
-		timespec_get(&start, TIME_UTC);
 
 		instruction = *(mem+TD4.PC) & 0xf0;
 		data = *(mem+TD4.PC) & 0x0f;
@@ -224,40 +213,40 @@ void print_console(registers *TD4, unsigned char *mem){
 	for(int i=0; i<MEM_SIZE; i++){
 		switch(i){
 			case 0:
-			printf("\033[%dm%2d | "BYTE_TO_BINARY_PATTERN \
-				"\t\033[0m[ A] = "BYTE_TO_BINARY_PATTERN \
-				"\t[ B] = "BYTE_TO_BINARY_PATTERN \
+			printf("\033[%dm%2d | "BYTE_TO_BINARY_PATTERN8 \
+				"\t\033[0m[ A] = "BYTE_TO_BINARY_PATTERN4 \
+				"\t[ B] = "BYTE_TO_BINARY_PATTERN4 \
 				"\n", \
-				(i == TD4->PC) ? 31 : 0, i, BYTE_TO_BINARY(*(mem+i)), \
-				BYTE_TO_BINARY(TD4->A), BYTE_TO_BINARY(TD4->B));
+				(i == TD4->PC) ? 31 : 0, i, BYTE_TO_BINARY8(*(mem+i)), \
+				BYTE_TO_BINARY4(TD4->A), BYTE_TO_BINARY4(TD4->B));
 				break;
 
 			case 1:
-			printf("\033[%dm%2d | "BYTE_TO_BINARY_PATTERN \
-				"\t\033[0m[CF] = "BYTE_TO_BINARY_PATTERN \
-				"\t[PC] = "BYTE_TO_BINARY_PATTERN \
+			printf("\033[%dm%2d | "BYTE_TO_BINARY_PATTERN8 \
+				"\t\033[0m[CF] = "BYTE_TO_BINARY_PATTERN4 \
+				"\t[PC] = "BYTE_TO_BINARY_PATTERN4 \
 				"\n", \
-				(i == TD4->PC) ? 31 : 0, i, BYTE_TO_BINARY(*(mem+i)), \
-				BYTE_TO_BINARY(TD4->CF), BYTE_TO_BINARY(TD4->PC));
+				(i == TD4->PC) ? 31 : 0, i, BYTE_TO_BINARY8(*(mem+i)), \
+				BYTE_TO_BINARY4(TD4->CF), BYTE_TO_BINARY4(TD4->PC));
 				break;
 
 			case 3:
-			printf("\033[%dm%2d | "BYTE_TO_BINARY_PATTERN \
-				"\t\033[0m[out] = "BYTE_TO_BINARY_PATTERN \
+			printf("\033[%dm%2d | "BYTE_TO_BINARY_PATTERN8 \
+				"\t\033[0m[out] = "BYTE_TO_BINARY_PATTERN4 \
 				"\n", \
-				(i == TD4->PC) ? 31 : 0, i, BYTE_TO_BINARY(*(mem+i)), \
-				BYTE_TO_BINARY(TD4->output));
+				(i == TD4->PC) ? 31 : 0, i, BYTE_TO_BINARY8(*(mem+i)), \
+				BYTE_TO_BINARY4(TD4->output));
 				break;
 
 			case MEM_SIZE-1:
-				printf("\033[%dm\033[2K\r%2d | "BYTE_TO_BINARY_PATTERN \
+				printf("\033[%dm\033[2K\r%2d | "BYTE_TO_BINARY_PATTERN8 \
 					"\t\033[0mEnter input: ", \
-					(i == TD4->PC) ? 31 : 0, i, BYTE_TO_BINARY(*(mem+i)));
+					(i == TD4->PC) ? 31 : 0, i, BYTE_TO_BINARY8(*(mem+i)));
 				break;
 
 			default:
-				printf("\033[%dm%2d | "BYTE_TO_BINARY_PATTERN"\n", \
-					(i == TD4->PC) ? 31 : 0, i, BYTE_TO_BINARY(*(mem+i)));
+				printf("\033[%dm%2d | "BYTE_TO_BINARY_PATTERN8"\n", \
+					(i == TD4->PC) ? 31 : 0, i, BYTE_TO_BINARY8(*(mem+i)));
 				break;
 		}
 	}
@@ -375,10 +364,10 @@ void input_data(unsigned char *instruction, registers *TD4, unsigned char *mem, 
 
 	if((*instruction == 0x20) || (*instruction == 0x60)){
 		get_input:
-			printf("\033[%dm\033[2K\r%2d | "BYTE_TO_BINARY_PATTERN \
+			printf("\033[%dm\033[2K\r%2d | "BYTE_TO_BINARY_PATTERN8 \
 					"\t\033[%dmEnter input: ", \
 					(MEM_SIZE-1 == TD4->PC) ? 31 : 0, \
-					MEM_SIZE-1, BYTE_TO_BINARY(*(mem+MEM_SIZE-1)), color);
+					MEM_SIZE-1, BYTE_TO_BINARY8(*(mem+MEM_SIZE-1)), color);
 
 			read = getline(&input, &len, stdin);
 			if(input[read-1] == '\n'){
@@ -403,6 +392,15 @@ void input_data(unsigned char *instruction, registers *TD4, unsigned char *mem, 
 
 
 void usage(){
+
+	printf("  __________  _____   __  __\n");
+	printf("/	   / |  _  \\ | | | |\n");
+  printf(" ```|``|```  | | | | | | | |\n");
+  printf("    |  |     | | | | |___   |\n");
+  printf("    |  |     | |_| |    |  |\n");
+  printf("    |__|     |_____/    |__|\n\n");
+
+
 	printf("Usage:\n");
 	printf("-a --auto\t\tAuto executed mode.\n");
 	printf("-m --manual\t\tManual executed mode.\n");
@@ -410,6 +408,10 @@ void usage(){
 	printf("-f --file\t<path>\tInput opcode from bin file.\n");
 	printf("-- --freq\t<cnt>\tEnter frequency of processor.\n");
 	printf("-- --help\n\n");
+
+	printf("Launch: emulator [-a|-m] [-n|-f <file>] [--freq <frequency>]\n\n");
+	printf("Example: emulator -a -f opcode.bin --freq 1. Emulator will execute code in auto mode from opcode.bin, instruction per second.\n");
+	printf("Example: emulator -m -n. Emulator will execute code in manual mode from input string. In manual mode no need in freq param.\n\n");
 
 	printf("Executed line will be highlited in \033[31mred\033[0m.\n");
 	printf("When prog is going to need in input, input will be highlited in \033[32mgreen\033[0m.\n");
