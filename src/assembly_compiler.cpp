@@ -128,7 +128,7 @@ private:
 
 int main(int argc, char *argv[]){
 
-	if(argc != 2)
+	if(argc != 3)
 		printf("Usage: <progname> <file1> <file2>,\nwhere file1 is file with opcode, file2 is bin file.\n");
 
 	hash_table mnemo(MEM_SIZE);
