@@ -1,6 +1,0 @@
-MOV A,5
-ADD A,f
-
-MOV B,A
-OUT B
-JMP 0

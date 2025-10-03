@@ -127,7 +127,11 @@ private:
 };
 
 int main(int argc, char *argv[]){
-	hash_table mnemo(16);
+
+	if(argc != 2)
+		printf("Usage: <progname> <file1> <file2>,\nwhere file1 is file with opcode, file2 is bin file.\n");
+
+	hash_table mnemo(MEM_SIZE);
 
 	mnemo.put_item("ADD A,", 0x00);
 	mnemo.put_item("ADD B,", 0x50);
@@ -142,8 +146,6 @@ int main(int argc, char *argv[]){
 	mnemo.put_item("OUT B",    0x90);
 	mnemo.put_item("OUT ",   0xb0);
 
-	//mnemo.print_table();
-
 	string data_arr = "0123456789abcdef";
 	stringstream str_data;
 	unsigned data;
@@ -156,7 +158,6 @@ int main(int argc, char *argv[]){
 	if(!inputdata.is_open())
 		; //handler
 
-	int pos;
 	for(string line; getline(inputdata, line);){
 		if(!line.size())
 			continue;
@@ -165,11 +166,10 @@ int main(int argc, char *argv[]){
 		if(data_arr.find(line.back()) != string::npos){
 			num = line.back();
 			line.pop_back();
-			pos = mnemo.get_item(line);
-
 		}
-		else
-			pos = mnemo.get_item(line);
+
+		if(mnemo.get_item(line) == -1)
+			; //handler
 		
 		str_data.clear();
 		str_data << hex << num;
