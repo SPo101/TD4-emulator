@@ -397,8 +397,8 @@ void usage(){
 	printf("/	   / |  _  \\ | | | |\n");
   printf(" ```|``|```  | | | | | | | |\n");
   printf("    |  |     | | | | |___   |\n");
-  printf("    |  |     | |_| |    |  |\n");
-  printf("    |__|     |_____/    |__|\n\n");
+ 	printf("    |  |     | |_| |    |  |\n");
+	printf("    |__|     |_____/    |__|\n\n");
 
 
 	printf("Usage:\n");
