@@ -26,8 +26,7 @@ Line of code that is executed rigth now will be highlited by red. When processor
 
 
 ## Principle scheme of TD4
-<img src="pic/cpu.png" alt="CPU itself" width="50%">
-<img src="pic/input.png" alt="CPU itself" width="50%">
+<img src="pic/cpu.png" alt="CPU itself" width="50%"> <img src="pic/input.png" alt="CPU itself" width="50%">
 
 
 ## Offisial opcode
@@ -46,6 +45,7 @@ Line of code that is executed rigth now will be highlited by red. When processor
 |IN B     | 0110 0000|
 |OUT B    | 1001 0000|
 |OUT IM   | 1011 xxxx|
+|---------|----------|
 where xxxx - some data.
 
 
