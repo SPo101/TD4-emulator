@@ -28,7 +28,7 @@ Line of code that is executed rigth now will be highlited by red. When processor
 ## Principle scheme of TD4
 | CPU | ROM |
 |---------|----------|
-|<img src="pic/cpu.png" alt="CPU itself" width="50%"> |<img src="pic/input.png" alt="CPU itself" width="50%">|
+|<img src="pic/cpu.png" alt="CPU itself" > |<img src="pic/input.png" alt="CPU itself" >|
 
 ## Offisial opcode
 
