@@ -1,11 +1,12 @@
 # TD4 cpu Emulator
 
-
 Here I present you written by my own TD4 processor emulator. 
 This project is a TD4 emulator implemented in C. It faithfully recreates the architecture of the real TD4 computing system, providing an accurate simulation of its core components including selectors, the Arithmetic Logic Unit (ALU), and the data bus.
 You can load into it's ROM your instructions in hex format, then TD4  will execute them. 
 
 Line of code that is executed rigth now will be highlited by red. When processor will need an input, input space will be highlited by green.
+
+In this repository there is file called simple_emulator.c which is simple-minded implementation of cpu, using switches insted of recreating selectors. advanced_emulator.c is made in the likeness of real cpu.
 
 
 ## Features
@@ -18,7 +19,7 @@ Line of code that is executed rigth now will be highlited by red. When processor
 
 
 ## Some programs for TD4:
-|  |  |
+| ROM in hex  | meaning |
 |----------------------------------|----------------|
 | 20000fe75ff2005f90f0000000000000 | reverse bits   |
 | 20600fef51f200000000000000000090 | sum of A and B |
@@ -31,8 +32,7 @@ Line of code that is executed rigth now will be highlited by red. When processor
 |<img src="pic/cpu.png" alt="CPU itself" > |<img src="pic/input.png" alt="CPU itself" >|
 
 ## Offisial opcode
-
-| | |
+| Mnemo | Opcode |
 |---------|----------|
 |ADD A,Im | 0000 xxxx|
 |ADD B,Im | 0101 xxxx|
