@@ -390,7 +390,6 @@ void input_data(unsigned char *instruction, registers *TD4, unsigned char *mem, 
 	free(input);
 }
 
-
 void usage(){
 
 	printf("  __________  _____   __  __\n");
