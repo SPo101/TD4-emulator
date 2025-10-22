@@ -16,15 +16,8 @@ using namespace std;
 #define tobool(num) \
   ((num) & 0x01 ? 1 : 0)
 
-#define neg(num) \
-  ((num) & 0x80 ? '0' : '0'), \
-  ((num) & 0x40 ? '0' : '0'), \
-  ((num) & 0x20 ? '0' : '0'), \
-  ((num) & 0x10 ? '0' : '0'), \
-  ((num) & 0x08 ? '0' : '1'), \
-  ((num) & 0x04 ? '0' : '1'), \
-  ((num) & 0x02 ? '0' : '1'), \
-  ((num) & 0x01 ? '0' : '1') 
+
+  
 
 typedef struct {
 	unsigned char A;
@@ -51,6 +44,7 @@ typedef struct {
 
 void opcode_decode(unsigned char *, registers *);
 unsigned char not_(unsigned char, int = 0);
+unsigned char neg(unsigned char);
 
 void arithmetic_unit(unsigned char *instruction, registers *TD4m){
 
@@ -320,5 +314,14 @@ data_is_command:
 //togglebit
 unsigned char not_(unsigned char num, int pos){
 	return num ^ (1<<pos);
+}
+
+unsigned char neg(unsigned char num){
+	num &= 0x0f;
+	num = not_(num, 3);
+	num = not_(num, 2);
+	num = not_(num, 1);
+	num = not_(num, 0);
+	return num;
 }
 
