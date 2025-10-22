@@ -1,4 +1,6 @@
 #include <iostream>
+#include <cstring>
+#include <cstdint>
 
 using namespace std;
 #define BYTE_TO_BINARY_PATTERN8 "%c%c%c%c%c%c%c%c"
@@ -32,6 +34,7 @@ typedef struct {
 	unsigned char one;
 
 	unsigned char *RAM;
+	unsigned char *ROM;
 	unsigned char *work_register1;
 	unsigned char *work_register2;
 	unsigned char *load_register;
@@ -39,7 +42,7 @@ typedef struct {
 	unsigned char cnt_cf;
 	unsigned char cnt_zf;
 	unsigned char arithmetic_logic_act;//0-arithmetic 1-logic
-	unsigned char move_bits;//0 for mostly all reg, 1 for x, 2 for y/pcl,  3 for xy, pc etc
+	unsigned char move_bits;//0 for mostly all reg, 1 for x, 2 for y/pcl,  3 for xy 
 } registers;
 
 void opcode_decode(unsigned char *, registers *);
@@ -47,10 +50,40 @@ unsigned char not_(unsigned char, int = 0);
 unsigned char neg(unsigned char);
 
 void arithmetic_unit(unsigned char *instruction, registers *TD4m){
+	if(TD4m->work_register2 == NULL)
+		return;
+	if(TD4m->load_register == NULL)
+		return;
 
+	switch(*instruction){
+		case 0x86: // A = A - B
+			*TD4m->load_register = *TD4m->work_register1 - *TD4m->work_register2;
+			break;
+		defoult:
+			switch(TD4m->move_bits){
+				case 0x00:
+					*TD4m->load_register = *TD4m->work_register1 + *TD4m->work_register2;
+					break;
+				case 0x01: //X
+					*TD4m->load_register = *TD4m->work_register1 << 4;
+					break;
+				case 0x02: //Y or PCL
+					*TD4m->load_register = *TD4m->work_register1 & 0x0f;
+					break;
+				case 0x03: //XY
+					*TD4m->load_register = *TD4m->work_register1 + *TD4m->work_register2;
+					break;
+			}
+			break;
+	}
 }
 
 void logic_unit(unsigned char *instruction, registers *TD4m){
+	if(TD4m->work_register2 == NULL)
+		return;
+	if(TD4m->load_register == NULL)
+		return;
+
 	switch(*instruction){
 		case 0x81: //A = -A ( A = neg(A) + 1)
 		case 0x82: //A = !A ( A = neg(A) + 0)
@@ -66,13 +99,11 @@ void logic_unit(unsigned char *instruction, registers *TD4m){
 			*TD4m->load_register = *TD4m->work_register1 ^ *TD4m->work_register2;
 			break;
 	}
-
-
 }
 
 int main(int argc, char *argv[]){
 
-	unsigned char inst = 0x81;
+	unsigned char inst = 0x88;
 	registers TD4m;
 	TD4m.A = 'A';
 	TD4m.B = 'B';
@@ -85,7 +116,19 @@ int main(int argc, char *argv[]){
 	TD4m.zero =  0x00;
 	TD4m.one =  0x01;
 
-	TD4m.RAM = (unsigned char*) malloc(124);
+	TD4m.RAM = (unsigned char*) malloc(128 * sizeof(unsigned char));
+	TD4m.ROM = (unsigned char*) malloc(256 * sizeof(unsigned char));
+
+	/*
+	write to rom prog
+
+	loop - read line by line instructions
+			decode instruction
+			ALU
+			handlers
+			pc++
+	*/
+
 
 	opcode_decode(&inst, &TD4m);
 
@@ -97,30 +140,43 @@ int main(int argc, char *argv[]){
 	printf("mode = %c (%hhx) \n", TD4m.move_bits, TD4m.move_bits);
 
 
-	/*
-	need handler
-		*TD4m.work_register2, *TD4m.load_register
-	can be NULL
-	*/
-
 	//when we direct registers to arithmetic unit or logic unit
 	if(((0x01 <= (inst&0x0f)) & ((inst&0x0f) <= 0x05)) & ((inst&0xf0) == 0x80))
 		logic_unit(&inst, &TD4m);
 	else
 		arithmetic_unit(&inst, &TD4m);	
 
-	/*
-	if(*TD4m->load_register >= 0x10){
-		*TD4m->load_register &= 0x0f;
-		TD4m->CF = 0x01;
-		TD4m->cnt_cf = 0x02;
+
+	if((*TD4m.load_register >= 0x10) & (TD4m.move_bits != 3)){
+		*TD4m.load_register &= 0x0f; 
+		TD4m.CF = 0x01;
+		TD4m.cnt_cf = 0x02;
 	}
 
-	if(*TD4m->load_register == 0x00){
-		TD4m->ZF = 0x01;
-		TD4m->cnt_zf = 0x02;
+	if(*TD4m.load_register == 0x00){
+		TD4m.ZF = 0x01;
+		TD4m.cnt_zf = 0x02;
 	}
-	*/
+
+	
+	if(TD4m.load_register != &TD4m.PC)
+			TD4m.PC += 0x01;
+
+	TD4m.PC %= 0xff;
+	
+
+	TD4m.cnt_cf -= 0x01;
+	if(TD4m.cnt_cf <= 0x00){
+		TD4m.CF = 0x00;
+		TD4m.cnt_cf = 0x00;
+	}	
+
+	TD4m.cnt_zf -= 0x01;
+	if(TD4m.cnt_zf <= 0x00){
+		TD4m.ZF = 0x00;
+		TD4m.cnt_zf = 0x00;
+	}
+
 }
 
 void opcode_decode(unsigned char *instruction, registers *TD4m){ 
@@ -145,7 +201,7 @@ void opcode_decode(unsigned char *instruction, registers *TD4m){
 								(D7 & D6 & not_(D5));
 
 
-	TD4m->move_bits = 0;
+	TD4m->move_bits = 0x00;
 
 	if(is_command)
 		goto data_is_command;
@@ -188,8 +244,9 @@ void opcode_decode(unsigned char *instruction, registers *TD4m){
 		case 0xd0: //OUT
 			TD4m->load_register = &TD4m->output;
 			break;
-		case 0xe0: //PC
+		case 0xe0: //PCL
 			TD4m->load_register = &TD4m->PC;
+			TD4m->move_bits = 0x02;
 			break;
 		case 0xf0: //for JNC when C
 			TD4m->load_register = NULL;
@@ -230,19 +287,18 @@ data_is_command:
 			break;	
 		case 0x30: //XY
 			TD4m->load_register = &TD4m->XY;
-			TD4m->move_bits = 3;
+			TD4m->move_bits = 0x03;
 			break;	
 		case 0x40: //X
 			TD4m->load_register = &TD4m->XY;
-			TD4m->move_bits = 1;
+			TD4m->move_bits = 0x01;
 			break;	
 		case 0x50: //Y
 			TD4m->load_register = &TD4m->XY;
-			TD4m->move_bits = 2;
+			TD4m->move_bits = 0x02;
 			break;	
 		case 0x60: //PC
 			TD4m->load_register = &TD4m->PC;
-			TD4m->move_bits = 3;
 			break;	
 	}
 
@@ -277,12 +333,6 @@ data_is_command:
 			break;	
 	}
 
-	/*
-	printf(BYTE_TO_BINARY_PATTERN8"\n", BYTE_TO_BINARY8(SUM1));
-	printf(BYTE_TO_BINARY_PATTERN8"\n", BYTE_TO_BINARY8(SUM2));
-	printf(BYTE_TO_BINARY_PATTERN8"\n", BYTE_TO_BINARY8(LOAD));
-	*/
-
 	if( ((*instruction)&0xf0) == 0xa0){
 		TD4m->work_register1 = &TD4m->input;
 		TD4m->work_register2 = &TD4m->zero;
@@ -290,7 +340,7 @@ data_is_command:
 
 		if(TD4m->ZF){
 			TD4m->load_register = &TD4m->PC;
-			TD4m->move_bits = 2;
+			TD4m->move_bits = 0x02;
 		}
 
 	}
@@ -298,14 +348,14 @@ data_is_command:
 		TD4m->work_register1 = &TD4m->input;
 		TD4m->work_register2 = &TD4m->zero;
 		TD4m->load_register = &TD4m->XY;
-		TD4m->move_bits = 2;
+		TD4m->move_bits = 0x02;
 		
 	}
 	if( ((*instruction)&0xf0) == 0xd0){
 		TD4m->work_register1 = &TD4m->input;
 		TD4m->work_register2 = &TD4m->zero;
 		TD4m->load_register = &TD4m->XY;
-		TD4m->move_bits = 1;
+		TD4m->move_bits = 0x01;
 		
 	}
 	return;
