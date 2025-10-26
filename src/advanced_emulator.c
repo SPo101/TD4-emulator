@@ -198,12 +198,9 @@ void read_bin_opcode(unsigned char *mem, char *path){
   }
 
   printf("Reading opcode from %s\n", path);
-  char *str = calloc(MEM_SIZE, 1);
-
   for(int i=0; i<MEM_SIZE; i++){
   	fread(mem+i, 1, 1, f);
   }
-  free(str);
   fclose(f);	
 }
 
