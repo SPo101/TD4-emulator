@@ -27,7 +27,8 @@ int main(int argc, char *argv[]){
 	td4m.write_rom("opcode.bin");
 
 
-	for(int i=0; i<16; i++){
+	//for(int i=0; i<16; i++){
+	for(;;){
 		print_state(&td4m);
 		inst = td4m.get_instruction();
 		td4m.opcode_decode(&inst);
