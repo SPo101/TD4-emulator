@@ -6,8 +6,6 @@ You can load into it's ROM your instructions in hex format, then TD4  will execu
 
 Line of code that is executed rigth now will be highlited by red. When processor will need an input, input space will be highlited by green.
 
-In this repository there is file called simple_emulator.c which is simple-minded implementation of cpu, using switches insted of recreating selectors. advanced_emulator.c is made in the likeness of real cpu.
-
 
 ## Features
 

@@ -207,46 +207,26 @@ void read_bin_opcode(unsigned char *mem, char *path){
 void print_console(registers *TD4, unsigned char *mem){
 
 	printf("\n");
+
+	printf("\t\t\033[0m[ A] = "BYTE_TO_BINARY_PATTERN4 \
+		"\t[ B] = "BYTE_TO_BINARY_PATTERN4 \
+		"\n", BYTE_TO_BINARY4(TD4->A), BYTE_TO_BINARY4(TD4->B));
+	printf("\t\t\033[0m[CF] = "BYTE_TO_BINARY_PATTERN4 \
+		"\t[PC] = "BYTE_TO_BINARY_PATTERN4 \
+		"\n\n", BYTE_TO_BINARY4(TD4->CF), BYTE_TO_BINARY4(TD4->PC));
+	printf("\t\t\033[0m[out] = "BYTE_TO_BINARY_PATTERN4 \
+		"\n", BYTE_TO_BINARY4(TD4->output));
+
+	for(int i=0; i<MEM_SIZE-4; i++)
+		printf("\n");
+
+	printf("\033[%dA\r", MEM_SIZE+1);
+
 	for(int i=0; i<MEM_SIZE; i++){
-		switch(i){
-			case 0:
-			printf("\033[%dm%2d | "BYTE_TO_BINARY_PATTERN8 \
-				"\t\033[0m[ A] = "BYTE_TO_BINARY_PATTERN4 \
-				"\t[ B] = "BYTE_TO_BINARY_PATTERN4 \
-				"\n", \
-				(i == TD4->PC) ? 31 : 0, i, BYTE_TO_BINARY8(*(mem+i)), \
-				BYTE_TO_BINARY4(TD4->A), BYTE_TO_BINARY4(TD4->B));
-				break;
-
-			case 1:
-			printf("\033[%dm%2d | "BYTE_TO_BINARY_PATTERN8 \
-				"\t\033[0m[CF] = "BYTE_TO_BINARY_PATTERN4 \
-				"\t[PC] = "BYTE_TO_BINARY_PATTERN4 \
-				"\n", \
-				(i == TD4->PC) ? 31 : 0, i, BYTE_TO_BINARY8(*(mem+i)), \
-				BYTE_TO_BINARY4(TD4->CF), BYTE_TO_BINARY4(TD4->PC));
-				break;
-
-			case 3:
-			printf("\033[%dm%2d | "BYTE_TO_BINARY_PATTERN8 \
-				"\t\033[0m[out] = "BYTE_TO_BINARY_PATTERN4 \
-				"\n", \
-				(i == TD4->PC) ? 31 : 0, i, BYTE_TO_BINARY8(*(mem+i)), \
-				BYTE_TO_BINARY4(TD4->output));
-				break;
-
-			case MEM_SIZE-1:
-				printf("\033[%dm\033[2K\r%2d | "BYTE_TO_BINARY_PATTERN8 \
-					"\t\033[0mEnter input: ", \
-					(i == TD4->PC) ? 31 : 0, i, BYTE_TO_BINARY8(*(mem+i)));
-				break;
-
-			default:
-				printf("\033[%dm%2d | "BYTE_TO_BINARY_PATTERN8"\n", \
-					(i == TD4->PC) ? 31 : 0, i, BYTE_TO_BINARY8(*(mem+i)));
-				break;
-		}
+		printf("\033[%dm%2d | "BYTE_TO_BINARY_PATTERN8 "\n", \
+			(i == TD4->PC) ? 31 : 0, i, BYTE_TO_BINARY8(*(mem+i)));
 	}
+
 	fflush(stdout);
 }
 
@@ -358,7 +338,6 @@ void input_data(unsigned char *instruction, registers *TD4, unsigned char *mem, 
 	int color = 32;
 	int exec = 1;
 
-
 	if((*instruction == 0x20) || (*instruction == 0x60)){
 		get_input:
 			printf("\033[%dm\033[2K\r%2d | "BYTE_TO_BINARY_PATTERN8 \
@@ -374,11 +353,16 @@ void input_data(unsigned char *instruction, registers *TD4, unsigned char *mem, 
 			printf("\033[%dA\r", 1);
 	
 			memcpy(&buf, input, 1);
-			//sscanf(buf, "%x", &TD4->input);
 			sscanf(buf, "%2hhx", &TD4->input);
 			exec = 0;
 	}
-	//mode=1 for auto; mode=0 for hand
+	if((*instruction != 0x20) || (*instruction != 0x60))
+		printf("\033[%dm\033[2K\r%2d | "BYTE_TO_BINARY_PATTERN8 \
+				"\t\033[0mEnter input: ", \
+				(MEM_SIZE-1 == TD4->PC) ? 31 : 0, \
+				MEM_SIZE-1, BYTE_TO_BINARY8(*(mem+MEM_SIZE-1)));
+
+	//mode=1 for auto; mode=0 for manual
 	if((!mode) & exec){
 		color = 33;
 		goto get_input;

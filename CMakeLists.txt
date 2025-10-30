@@ -20,3 +20,7 @@ target_compile_options(emu_td4m PRIVATE -std=c++11)
 #td4 cpu
 add_executable(emu_td4 src/advanced_emulator.c)
 
+
+#compiler for td4 cpu
+add_executable(comp src/assembly_compiler.cpp)
+target_compile_options(comp PRIVATE -std=c++11)
