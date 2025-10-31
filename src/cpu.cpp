@@ -117,19 +117,19 @@ void TD4m_cpu::opcode_decode(unsigned char *instruction) {
 	//block when last 4 bits present command
 	//A-0000 B-0001 RAM-0010 XY-0011 X-0100 Y-0101 PC-0110 zero-0111 one-1000 out-1001
 data_is_command:
-	SUM1 |= (tobool(D3 & ((not_(D2) & not_(D0)) | (D2 & D1))) << 5);
-	SUM1 |= (tobool(D3 & D1 & ( (not_(D2) * D0) | D2 )		) << 4);
+	SUM1 |= (tobool(D3 & ((not_(D2) & not_(D0)) | (D2 & D1))) << 5); //S1
+	SUM1 |= (tobool(D3 & D1 & ( (not_(D2) * D0) | D2 )		) << 4); //S0
 
-	SUM2 |= (tobool((not_(D3) & not_(D2) & not_(D1) & D0) | (D3 & D2 & D1 & not_(D0))							) << 7);
-	SUM2 |= (tobool((not_(D3)&D1&((not_(D2)&not_(D0))|(D2&D0))) | (D3&not_(D2)) | (D3&D2&(not_(D1)|(D1&D0)))	) << 6);
-	SUM2 |= (tobool(SUM2>>6																						) << 5);
-	SUM2 |= (tobool(not_(SUM2>>7)																				) << 4);
+	SUM2 |= (tobool((not_(D3) & not_(D2) & not_(D1) & D0) | (D3 & D2 & D1 & not_(D0))							) << 7); //S3
+	SUM2 |= (tobool((not_(D3)&D1&((not_(D2)&not_(D0))|(D2&D0))) | (D3&not_(D2)) | (D3&D2&(not_(D1)|(D1&D0)))	) << 6); //S2
+	SUM2 |= (tobool(SUM2>>6																						) << 5); //S1
+	SUM2 |= (tobool(not_(SUM2>>7)																				) << 4); //S0
 	
-	LOAD |= (tobool(not_(D3) & D2 & D1 & D0										) << 7);
-	LOAD |= (tobool(D3 & D2 & not_(D1)											) << 6);
-	LOAD |= (tobool(D3 & ((not_(D2) & D0) | (D2 & D1))							) << 5);
-	LOAD |= (tobool( (D1 & ( (D3 & not_(D2) & not_(D0)) | \
-		(not_(D3) & D2 & D0))) | (D3 & D2 & ((not_(D1) & D0) | (D1 & not_(D0))))) << 4);
+	LOAD |= (tobool(not_(D3) & D2 & D1 & D0	) << 7); //L3
+	LOAD |= (tobool(D3 & D2 & (not_(D1)	| D0)) << 6); //L2
+	LOAD |= (tobool(D3 & ((not_(D2) & D0) | (D2 & D1))) << 5); //L1
+	LOAD |= (tobool((D2 & D0 & ((D3 & not_(D1)) | (D1 & not_(D3)))) | \
+									(D3 & D1 & not_(D0))) << 4); //L0
 
 
 	//define 1st summand for ALU

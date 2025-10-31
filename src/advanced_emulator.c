@@ -217,10 +217,7 @@ void print_console(registers *TD4, unsigned char *mem){
 	printf("\t\t\033[0m[out] = "BYTE_TO_BINARY_PATTERN4 \
 		"\n", BYTE_TO_BINARY4(TD4->output));
 
-	for(int i=0; i<MEM_SIZE-4; i++)
-		printf("\n");
-
-	printf("\033[%dA\r", MEM_SIZE+1);
+	printf("\033[%dA\r", 5);
 
 	for(int i=0; i<MEM_SIZE; i++){
 		printf("\033[%dm%2d | "BYTE_TO_BINARY_PATTERN8 "\n", \

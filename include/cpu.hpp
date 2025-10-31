@@ -40,7 +40,6 @@ public:
 	void alu(unsigned char *instruction) override;
 	void flags_handler() override;
 	void next_step();
-
 	void write_rom(string);
 	unsigned char get_instruction();
 
