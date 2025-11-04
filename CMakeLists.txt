@@ -9,6 +9,7 @@ set(SRC
 #Libs for td4m cpu
 add_library(libs STATIC ${SRC})
 target_include_directories(libs PUBLIC include)
+target_compile_options(libs PRIVATE -std=c++11)
 
 
 #td4m cpu

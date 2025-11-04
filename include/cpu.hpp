@@ -1,6 +1,7 @@
 #pragma once
 #include <iostream>
 #include <fstream>
+#include <string>
 using namespace std;
 
 class cpu{
@@ -42,6 +43,7 @@ public:
 	void next_step();
 	void write_rom(string);
 	unsigned char get_instruction();
+	void data_input();
 
 private:
 	void logic_unit(unsigned char *instruction);

@@ -272,7 +272,7 @@ void TD4m_cpu::logic_unit(unsigned char *instruction){
 	switch(*instruction){
 		case 0x81: //A = -A ( A = neg(A) + 1)
 		case 0x82: //A = !A ( A = neg(A) + 0)
-			*this->load_register = neg(*this->work_register1) + *this->work_register2;
+			*this->load_register = (~(*this->work_register1)&0x0f) + *this->work_register2;
 			break;
 		case 0x83: //A or B
 			*this->load_register = *this->work_register1 | *this->work_register2;
@@ -342,3 +342,17 @@ void TD4m_cpu::z_flag_handler(){
 	}
 }
 
+void TD4m_cpu::data_input(){
+	string str;
+	printf("\033[%dmInput data:\033[%dm ", 32, 0);
+	getline(cin, str);
+	try{
+		unsigned int data = stoul(str, nullptr, 16);
+		this->input = static_cast<unsigned char>(data);
+	}
+	catch (invalid_argument& e){
+		this->input = 0x00;
+	}
+	printf("\033[1A\r\x1b[2K");
+	fflush(stdout);
+}
