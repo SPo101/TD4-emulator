@@ -342,7 +342,35 @@ void TD4m_cpu::z_flag_handler(){
 	}
 }
 
+void TD4m_cpu::reset(){
+	//4bit reg
+	this->A = 0x00;
+	this->B = 0x00;
+	this->input = 0x00;
+	this->output = 0x00;
 
+	//8bit reg
+	this->PC = 0x00;
+	this->XY = 0x00;
+
+	//flags
+	this->CF = 0x00;
+	this->ZF = 0x00;
+
+	//consts
+	this->zero = 0x00;
+	this->one = 0x01;
+
+	//accessory
+	this->work_register1 = NULL;
+	this->work_register2 = NULL;
+	this->load_register = NULL;
+
+	//accessory
+	this->cnt_cf = 0x00;
+	this->cnt_zf = 0x00;
+	this->move_bits = 0x00;	
+}
 
 
 

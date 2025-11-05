@@ -17,9 +17,10 @@ typedef struct {
 
 typedef struct {
 	vector<unsigned char> bp;
-	vector<unsigned char> ram;
-	vector<unsigned char> rom;
-	unsigned char cont;
+	unsigned char rom;
+	unsigned char ram;
+	unsigned char step;
+	unsigned char restart;
 } cons_args;
 
 
@@ -28,26 +29,23 @@ int stopped = 0;
 void usage();
 void man();
 void read_args(int, char **, settings *);
-void stop_exec_target(int);
-void cpu_print_state(TD4m_cpu *);
+void dbg_stop_exec_target(int);
+void cpu_print_state(TD4m_cpu *, cons_args *);
 void cpu_cycle(TD4m_cpu *, unsigned char *);
 void cpu_data_input(TD4m_cpu *, unsigned char *);
-void console_input(TD4m_cpu *, cons_args *);
-void console_arg_handler(TD4m_cpu *, cons_args *);
+void dbg_console_input(TD4m_cpu *, cons_args *);
 void dbg_breakpoint_handler(TD4m_cpu *, cons_args *);
+void dbg_step_handler(TD4m_cpu *, cons_args *);
+void dbg_restart_handler(TD4m_cpu *, cons_args *);
 /*
 to add
 |-	console input
+	|-	?target
+	|-	?run
 	|-  after bp ability to step back
 		|- need state dumps for that
 |-  console handler input
-	|-	print cpu state
-	|-	?target
-	|-	?run
 	|-  all implied setting should influence on emu
-		|- bp
-		|- continue
-		|- mem
 
 
 
@@ -57,13 +55,16 @@ after ctrl-z input commands mode; commands for showing special mem,
 
 int main(int argc, char *argv[]){
 
-	signal(SIGTSTP, stop_exec_target);
+	signal(SIGTSTP, dbg_stop_exec_target);
 
 	TD4m_cpu td4m;
 	unsigned char cpu_input = 0x00;
 	settings start_set;
 	cons_args cargs;
-	cargs.cont = 0x00;
+	cargs.rom = 0x00;	
+	cargs.ram = 0x00;
+	cargs.step = 0x00;
+	cargs.restart = 0x00;
 	struct timespec start, stop;
 
 	start_set.mode = 1;
@@ -78,21 +79,21 @@ int main(int argc, char *argv[]){
 	int cycles_done = 0;
 	for(;;){
 
+		dbg_restart_handler(&td4m, &cargs);
+		dbg_step_handler(&td4m, &cargs);
+
 		if(stopped){
 			printf("\033[%dB\r", PRINT_LINES+1);
 			printf("\x1b[2K");
 			fflush(stdout);
-			console_input(&td4m, &cargs);
-			//printf("\033[%dA\r", PRINT_LINES+2);
+			dbg_console_input(&td4m, &cargs);
 			continue;
 		}
-
-		//console_arg_handler(&td4m, &cargs);
 
 		timespec_get(&start, TIME_UTC);
 
 	loop:
-		cpu_print_state(&td4m);
+		cpu_print_state(&td4m, &cargs);
 		cpu_data_input(&td4m, &cpu_input);
 		cpu_cycle(&td4m, &cpu_input);
 
@@ -126,8 +127,26 @@ int main(int argc, char *argv[]){
 	}
 }
 
+void dbg_restart_handler(TD4m_cpu *td4m, cons_args *cargs){
+	if(!cargs->restart)
+		return;
 
-void console_arg_handler(TD4m_cpu *td4m, cons_args *cargs){
+	td4m->reset();
+	cargs->restart = 0x00;
+}
+
+void dbg_step_handler(TD4m_cpu *td4m, cons_args *cargs){
+	if(!cargs->step)
+		return;
+
+	unsigned char cpu_input = 0x00;
+	while(cargs->step){
+		cpu_data_input(td4m, &cpu_input);
+		cpu_cycle(td4m, &cpu_input);
+
+		dbg_breakpoint_handler(td4m, cargs);
+		cargs->step--;
+	}
 }
 
 void dbg_breakpoint_handler(TD4m_cpu *td4m, cons_args *cargs){
@@ -146,7 +165,8 @@ void dbg_breakpoint_handler(TD4m_cpu *td4m, cons_args *cargs){
 		return;
 
 
-	stop_exec_target(0);
+	if(!stopped)
+		dbg_stop_exec_target(0);
 	printf("\033[%dB\r", PRINT_LINES+1);
 	printf("Breakpoint at address - %hhx\n", td4m->PC);
 	printf("\033[%dA\r", 1);
@@ -188,7 +208,21 @@ void cpu_cycle(TD4m_cpu *td4m, unsigned char *cpu_input){
 	td4m->next_step();
 }
 
-void console_input(TD4m_cpu *td4m, cons_args *cargs){
+void cpu_print_state(TD4m_cpu *td4m, cons_args *cargs){
+	printf("ROM\tRAM\n");
+	printf("\t\t\t[  A]=%2hhx [  B]=%2hhx\n", td4m->A, td4m->B);
+	printf("\t\t\t[ PC]=%2hhx [ XY]=%2hhx\n", td4m->PC, td4m->XY);
+	printf("\t\t\t[ CF]=%2hhx [ ZF]=%2hhx\n\n", td4m->CF, td4m->ZF);
+	printf("\t\t\t[out]=%2hhx\n", td4m->output);
+	printf("\033[%dA\r", 5);
+
+
+	for(int i=0; i<PRINT_LINES; i++)
+		printf("%2hhx\t%2hhx\n", *(td4m->ROM+i+cargs->rom), *(td4m->RAM+i+cargs->ram));
+	printf("\033[%dA\r", PRINT_LINES+1);
+}
+
+void dbg_console_input(TD4m_cpu *td4m, cons_args *cargs){
 	string input;
 	string token;
 	printf("> ");
@@ -216,21 +250,32 @@ void console_input(TD4m_cpu *td4m, cons_args *cargs){
 				continue;
 			}
 			if((!token.compare("s")) | (!token.compare("step"))){
-				cargs->cont += 0x01;
+				cargs->step += 0x01;
+				token.erase();
+				continue;
+			}
+			if((!token.compare("ss")) | (!token.compare("steps"))){
+				state = 4;
 				token.erase();
 				continue;
 			}
 			if((!token.compare("c")) | (!token.compare("continue"))){
-				stop_exec_target(0);
+				dbg_stop_exec_target(0);
 				token.erase();
 				return;
 			}
 			if(!token.compare("exit"))
 				exit(0);
 			if((!token.compare("pcs")) | (!token.compare("printcpustate"))){
-				cpu_print_state(td4m);
+				cpu_print_state(td4m, cargs);
 				printf("\033[%dB\r", PRINT_LINES+2);
 				continue;
+			}
+			if((!token.compare("r")) | (!token.compare("restart"))){
+				dbg_stop_exec_target(0);
+				cargs->restart = 0x01;
+				token.erase();
+				return;
 			}
 
 			unsigned int data = 0;
@@ -247,11 +292,15 @@ void console_input(TD4m_cpu *td4m, cons_args *cargs){
 				cargs->bp.push_back(static_cast<unsigned char>(data));
 				break;
 			case 2:
-				cargs->ram.push_back(static_cast<unsigned char>(data));
+				cargs->ram = static_cast<unsigned char>(data);
 				state = 0;
 				break;
 			case 3:
-				cargs->rom.push_back(static_cast<unsigned char>(data));
+				cargs->rom = static_cast<unsigned char>(data);
+				state = 0;
+				break;
+			case 4:
+				cargs->step += static_cast<unsigned char>(data);
 				state = 0;
 				break;
 			case 0:
@@ -276,6 +325,7 @@ void usage(){
 
 
 	printf("Usage:\n");
+	printf("-c --console\t\tStart in console mode.\n");
 	printf("-a --auto\t\tAuto executed mode.\n");
 	printf("-m --manual\t\tManual executed mode.\n");
 	printf("-f --file\t<path>\tInput opcode from bin file.\n");
@@ -284,8 +334,6 @@ void usage(){
 	printf("-- --help\n\n");
 
 	printf("<Ctrl-z> to stop/continue executing or enter/exit command mode.\n\n");
-
-	//printf("Use breakpoint [bp], continue [c], stepback [sb], ram, rom \n");
 	exit(0);
 }
 
@@ -299,28 +347,19 @@ void man(){
 			"    \\/__/\\/__,_ /  \\/_/   \\/_/\\/_/\\/_/by spo101 \n\n");
 	printf("Man:\n");
 	printf("bp\tbreakpoint\t<1st> ... <last> args\tMake a breakpoint(s).\n");
-	printf("s\tstep\t--\t\t\t\tIn auto mode continue until next bp. In manual mode make one step.\n");
+	printf("s\tstep\t\t--\t\t\tMake one step.\n");
+	printf("ss\tsteps\t\t<arg>\t\t\tMake n steps.\n");
 	printf("--\tram\t\t<arg>\t\t\tPrint RAM area from <arg> place.\n");
 	printf("--\trom\t\t<arg>\t\t\tPrint ROM area from <arg> place.\n");
-	printf("c \tcontinue\t\t--\t\tExit console mode(preffered). Equivalent of <Ctrl-z>.\n");
+
+	printf("r\trestart\t\t--\t\t\tRestarts execution of target\n");
+	printf("pcs\tprintcpustate\t--\t\t\tShow registers state\n");
+
+	printf("c\tcontinue\t--\t\t\tExit console mode(preffered). Equivalent of <Ctrl-z>.\n");
 	printf("--\texit\t\t--\t\t\tExit emulator. Equivalent of <Ctrl-c>.\n");
 	printf("\n");
 
 	exit(0);
-}
-
-void cpu_print_state(TD4m_cpu *td4m){
-	printf("ROM\tRAM\n");
-	printf("\t\t\t[  A]=%2hhx [  B]=%2hhx\n", td4m->A, td4m->B);
-	printf("\t\t\t[ PC]=%2hhx [ XY]=%2hhx\n", td4m->PC, td4m->XY);
-	printf("\t\t\t[ CF]=%2hhx [ ZF]=%2hhx\n\n", td4m->CF, td4m->ZF);
-	printf("\t\t\t[out]=%2hhx\n", td4m->output);
-	printf("\033[%dA\r", 5);
-
-
-	for(int i=0; i<PRINT_LINES; i++)
-		printf("%2hhx\t%2hhx\n", *(td4m->ROM+td4m->PC+i), *(td4m->RAM+td4m->XY+i));
-	printf("\033[%dA\r", PRINT_LINES+1);
 }
 
 void read_args(int cnt_args, char *args[], settings *start_set){
@@ -338,8 +377,9 @@ void read_args(int cnt_args, char *args[], settings *start_set){
 		{"freq",	required_argument,	0, 	0 },
 		{"help",	no_argument,		0, 	0 },
 		{"man",		no_argument,		0, 	0 },
+		{"console",	no_argument,		0, 	'c'},
 	};
-	static const char *Short_options = "amf:";
+	static const char *Short_options = "amf:c";
 
 	while(1){
 		Option = getopt_long(cnt_args, args, Short_options, Long_options, &Option_index);
@@ -367,13 +407,22 @@ void read_args(int cnt_args, char *args[], settings *start_set){
 			case 'f':
 				start_set->path = optarg;
 				break;
+			case 'c':
+				TD4m_cpu p_td4m;
+				cons_args p_cargs;
+				p_cargs.rom = 0x00;	
+				p_cargs.ram = 0x00;
+				p_cargs.step = 0x00;
+				cpu_print_state(&p_td4m, &p_cargs);
+				dbg_stop_exec_target(0);
+				break;
 		}
 	}
 	if(!start_set->mode)//in manual mode the processor doesnt require frequency.
 		start_set->frequency = 0;
 }
 
-void stop_exec_target(int sig){
+void dbg_stop_exec_target(int sig){
 		stopped++;
 		stopped %= 2;
 }

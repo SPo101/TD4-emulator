@@ -43,6 +43,7 @@ public:
 	void next_step();
 	void write_rom(string);
 	unsigned char get_instruction();
+	void reset();
 
 private:
 	void logic_unit(unsigned char *instruction);
