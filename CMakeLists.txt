@@ -4,6 +4,7 @@ project(TD4_cpus)
 set(SRC
 	src/cpu.cpp
 	src/logic.cpp
+	src/emu.cpp
 )
 
 #Libs for td4m cpu
