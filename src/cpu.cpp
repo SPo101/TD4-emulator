@@ -342,17 +342,7 @@ void TD4m_cpu::z_flag_handler(){
 	}
 }
 
-void TD4m_cpu::data_input(){
-	string str;
-	printf("\033[%dmInput data:\033[%dm ", 32, 0);
-	getline(cin, str);
-	try{
-		unsigned int data = stoul(str, nullptr, 16);
-		this->input = static_cast<unsigned char>(data);
-	}
-	catch (invalid_argument& e){
-		this->input = 0x00;
-	}
-	printf("\033[1A\r\x1b[2K");
-	fflush(stdout);
-}
+
+
+
+

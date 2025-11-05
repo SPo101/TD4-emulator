@@ -2,6 +2,7 @@
 #include <time.h>
 #include <getopt.h>
 #include <vector>
+#include <algorithm>
 #include "cpu.hpp"
 #include "logic.hpp"
 
@@ -21,18 +22,28 @@ typedef struct {
 	unsigned char cont;
 } cons_args;
 
+
+int stopped = 0;
+
 void usage();
-void print_state(TD4m_cpu *);
+void man();
 void read_args(int, char **, settings *);
-void sig_handler(int);
-void cycle(TD4m_cpu *);
-void console_input(cons_args *);
+void stop_exec_target(int);
+void cpu_print_state(TD4m_cpu *);
+void cpu_cycle(TD4m_cpu *, unsigned char *);
+void cpu_data_input(TD4m_cpu *, unsigned char *);
+void console_input(TD4m_cpu *, cons_args *);
+void console_arg_handler(TD4m_cpu *, cons_args *);
+void dbg_breakpoint_handler(TD4m_cpu *, cons_args *);
 /*
 to add
 |-	console input
 	|-  after bp ability to step back
 		|- need state dumps for that
 |-  console handler input
+	|-	print cpu state
+	|-	?target
+	|-	?run
 	|-  all implied setting should influence on emu
 		|- bp
 		|- continue
@@ -43,24 +54,26 @@ to add
 after ctrl-z input commands mode; commands for showing special mem, 
 		adding bp, sb and so on.
 */
-int stopped = 0;
 
 int main(int argc, char *argv[]){
 
-	signal(SIGTSTP, sig_handler);
+	signal(SIGTSTP, stop_exec_target);
 
 	TD4m_cpu td4m;
+	unsigned char cpu_input = 0x00;
 	settings start_set;
 	cons_args cargs;
 	cargs.cont = 0x00;
 	struct timespec start, stop;
 
 	start_set.mode = 1;
-	start_set.path = NULL;
+	start_set.path = nullptr;
 	start_set.frequency = 1;
 	read_args(argc, argv, &start_set);
 
-	td4m.write_rom(start_set.path);
+	if(start_set.path != nullptr)
+		td4m.write_rom(start_set.path);
+
 
 	int cycles_done = 0;
 	for(;;){
@@ -69,18 +82,21 @@ int main(int argc, char *argv[]){
 			printf("\033[%dB\r", PRINT_LINES+1);
 			printf("\x1b[2K");
 			fflush(stdout);
-			console_input(&cargs);
-			printf("\033[%dA\r", PRINT_LINES+2);
+			console_input(&td4m, &cargs);
+			//printf("\033[%dA\r", PRINT_LINES+2);
 			continue;
 		}
 
-		//console_arg_handler();
+		//console_arg_handler(&td4m, &cargs);
 
 		timespec_get(&start, TIME_UTC);
 
 	loop:
-		cycle(&td4m);
+		cpu_print_state(&td4m);
+		cpu_data_input(&td4m, &cpu_input);
+		cpu_cycle(&td4m, &cpu_input);
 
+		dbg_breakpoint_handler(&td4m, &cargs);
 
 
 		if(!start_set.frequency){//in manual mode, processor doesnt need to sleep.
@@ -109,15 +125,62 @@ int main(int argc, char *argv[]){
 
 	}
 }
-void cycle(TD4m_cpu *td4m){
-	print_state(td4m);
+
+
+void console_arg_handler(TD4m_cpu *td4m, cons_args *cargs){
+}
+
+void dbg_breakpoint_handler(TD4m_cpu *td4m, cons_args *cargs){
+	int in = 0;
+	int ln = cargs->bp.size();
+	if(!ln)
+		return;
+
+	for(int i = 0; i < ln; i++)
+		if(td4m->PC == cargs->bp.at(i)){
+			in = 1;
+			break;
+		}
+
+	if(!in)
+		return;
+
+
+	stop_exec_target(0);
+	printf("\033[%dB\r", PRINT_LINES+1);
+	printf("Breakpoint at address - %hhx\n", td4m->PC);
+	printf("\033[%dA\r", 1);
+	fflush(stdout);
+}
+
+void cpu_data_input(TD4m_cpu *td4m, unsigned char *cpu_input){
+	unsigned char inst = td4m->get_instruction();
+	if(((inst&0xf0) != 0x20) & ((inst&0xf0) != 0x60)){
+		*cpu_input = 0x00;
+		return;
+	}
+
+	string str;
+	printf("\033[%dB\r", PRINT_LINES+1);
+	printf("\033[%dmInput data:\033[%dm ", 32, 0);
+	getline(cin, str);
+	try{
+		unsigned int data = stoul(str, nullptr, 16);
+		*cpu_input = static_cast<unsigned char>(data);
+	}
+	catch (invalid_argument& e){
+		*cpu_input = 0x00;
+	}
+	printf("\033[1A\r\x1b[2K");
+	printf("\033[%dA\r", PRINT_LINES+1);
+	fflush(stdout);
+}
+
+void cpu_cycle(TD4m_cpu *td4m, unsigned char *cpu_input){
 	unsigned char inst = td4m->get_instruction();
 
-	if(((inst&0xf0) == 0x20) | ((inst&0xf0) == 0x60)){
-		printf("\033[%dB\r", PRINT_LINES+1);
-		td4m->data_input();
-		printf("\033[%dA\r", PRINT_LINES+1);
-	}
+	if(((inst&0xf0) == 0x20) | ((inst&0xf0) == 0x60))
+		td4m->input = *cpu_input;
 
 	td4m->opcode_decode(&inst);
 	td4m->alu(&inst);
@@ -125,9 +188,10 @@ void cycle(TD4m_cpu *td4m){
 	td4m->next_step();
 }
 
-void console_input(cons_args *cargs){
+void console_input(TD4m_cpu *td4m, cons_args *cargs){
 	string input;
 	string token;
+	printf("> ");
 	getline(cin, input);
 	int state = 0;
 
@@ -151,9 +215,21 @@ void console_input(cons_args *cargs){
 				token.erase();
 				continue;
 			}
-			if((!token.compare("c")) | (!token.compare("continue"))){
+			if((!token.compare("s")) | (!token.compare("step"))){
 				cargs->cont += 0x01;
 				token.erase();
+				continue;
+			}
+			if((!token.compare("c")) | (!token.compare("continue"))){
+				stop_exec_target(0);
+				token.erase();
+				return;
+			}
+			if(!token.compare("exit"))
+				exit(0);
+			if((!token.compare("pcs")) | (!token.compare("printcpustate"))){
+				cpu_print_state(td4m);
+				printf("\033[%dB\r", PRINT_LINES+2);
 				continue;
 			}
 
@@ -172,9 +248,11 @@ void console_input(cons_args *cargs){
 				break;
 			case 2:
 				cargs->ram.push_back(static_cast<unsigned char>(data));
+				state = 0;
 				break;
 			case 3:
 				cargs->rom.push_back(static_cast<unsigned char>(data));
+				state = 0;
 				break;
 			case 0:
 				break;
@@ -183,6 +261,7 @@ void console_input(cons_args *cargs){
 			token.erase();
 		}
 	}
+	sort(cargs->bp.begin(), cargs->bp.end());
 }
 
 void usage(){
@@ -201,6 +280,7 @@ void usage(){
 	printf("-m --manual\t\tManual executed mode.\n");
 	printf("-f --file\t<path>\tInput opcode from bin file.\n");
 	printf("-- --freq\t<cnt>\tEnter frequency of processor.\n");
+	printf("-- --man\t\tSee all built-in console args\n");
 	printf("-- --help\n\n");
 
 	printf("<Ctrl-z> to stop/continue executing or enter/exit command mode.\n\n");
@@ -209,7 +289,27 @@ void usage(){
 	exit(0);
 }
 
-void print_state(TD4m_cpu *td4m){
+void man(){
+	printf(" __       __  __ __  \n"  \
+			"/\\ \\__   /\\ \\/\\ \\\\ \\  \n" \
+			"\\ \\ ,_\\  \\_\\ \\ \\ \\\\ \\      ___ ___    \n" \
+			" \\ \\ \\/  /'_` \\ \\ \\\\ \\_  /' __` __`\\   \n" \
+			"  \\ \\ \\_/\\ \\L\\ \\ \\__ ,__\\/\\ \\/\\ \\/\\ \\ \n" \
+			"   \\ \\__\\ \\___,_\\/_/\\_\\_/\\ \\_\\ \\_\\ \\_\\    \n" \
+			"    \\/__/\\/__,_ /  \\/_/   \\/_/\\/_/\\/_/by spo101 \n\n");
+	printf("Man:\n");
+	printf("bp\tbreakpoint\t<1st> ... <last> args\tMake a breakpoint(s).\n");
+	printf("s\tstep\t--\t\t\t\tIn auto mode continue until next bp. In manual mode make one step.\n");
+	printf("--\tram\t\t<arg>\t\t\tPrint RAM area from <arg> place.\n");
+	printf("--\trom\t\t<arg>\t\t\tPrint ROM area from <arg> place.\n");
+	printf("c \tcontinue\t\t--\t\tExit console mode(preffered). Equivalent of <Ctrl-z>.\n");
+	printf("--\texit\t\t--\t\t\tExit emulator. Equivalent of <Ctrl-c>.\n");
+	printf("\n");
+
+	exit(0);
+}
+
+void cpu_print_state(TD4m_cpu *td4m){
 	printf("ROM\tRAM\n");
 	printf("\t\t\t[  A]=%2hhx [  B]=%2hhx\n", td4m->A, td4m->B);
 	printf("\t\t\t[ PC]=%2hhx [ XY]=%2hhx\n", td4m->PC, td4m->XY);
@@ -237,6 +337,7 @@ void read_args(int cnt_args, char *args[], settings *start_set){
 		{"file",	required_argument,	0,	'f'},
 		{"freq",	required_argument,	0, 	0 },
 		{"help",	no_argument,		0, 	0 },
+		{"man",		no_argument,		0, 	0 },
 	};
 	static const char *Short_options = "amf:";
 
@@ -247,10 +348,12 @@ void read_args(int cnt_args, char *args[], settings *start_set){
 		
 		switch(Option){
 			case 0:
-				if(Option_index == 4)//help
-					usage();
 				if(Option_index == 3)//freq
 					start_set->frequency = atoi(optarg);
+				if(Option_index == 4)//help
+					usage();
+				if(Option_index == 5)//man
+					man();
 				break;
 			case 'a':
 				start_set->mode = 1; //auto
@@ -270,7 +373,7 @@ void read_args(int cnt_args, char *args[], settings *start_set){
 		start_set->frequency = 0;
 }
 
-void sig_handler(int sig){
+void stop_exec_target(int sig){
 		stopped++;
 		stopped %= 2;
 }
