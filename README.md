@@ -2,11 +2,11 @@
 ## TD4M CPU Emulator
 This project features the TD4M CPU emulator, implemented in C++. It recreates the pseudo architecture of the TD4M processor, a conceptual evolution inspired by the original TD4 CPU. The emulator simulates the core components and behavior of the TD4M, providing an interactive and faithful environment for experimenting with this hypothetical architecture.
 
--You can load your TD4M machine code instructions into the emulator’s ROM in hex format.
--The emulator executes these instructions step-by-step.
--The currently executing line of code is highlighted in red for easy tracking.
+- You can load your TD4M machine code instructions into the emulator’s ROM in hex format.
+- The emulator executes these instructions step-by-step.
+- The currently executing line of code is highlighted in red for easy tracking.
 -When the CPU requires input during execution, the input field is highlighted in green.
--Includes a debugging console where you can set breakpoints, step through code, inspect and print registers, and monitor execution state interactively.
+- Includes a debugging console where you can set breakpoints, step through code, inspect and print registers, and monitor execution state interactively.
 
 This emulator serves as a platform for exploring advanced CPU design concepts beyond the original TD4, enabling experimentation with extended instruction sets and architectural features.
 This enhanced debugging capability makes the TD4M emulator an excellent tool for in-depth CPU design experimentation and learning.
