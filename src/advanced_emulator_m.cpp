@@ -20,7 +20,6 @@ to add
 	|-  all implied setting should influence on emu
 
 
-
 after ctrl-z input commands mode; commands for showing special mem, 
 		adding bp, sb and so on.
 */

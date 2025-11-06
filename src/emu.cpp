@@ -24,10 +24,19 @@ void emu_step_handler(TD4m_cpu *td4m, cons_args *cargs){
 
 void emu_breakpoint_handler(TD4m_cpu *td4m, cons_args *cargs){
 	int in = 0;
-	int ln = cargs->bp.size();
+	int ln = 0;
+
+	ln = cargs->bp.size();
 	if(!ln)
 		return;
+	sort(cargs->bp.begin(), cargs->bp.end());
 
+	ln = cargs->rbp.size();
+	if(ln)
+		for(int i=0; i<ln; i++)
+			cargs->bp.erase(remove(cargs->bp.begin(), cargs->bp.end(), cargs->rbp.at(i)), cargs->bp.end());
+
+	ln = cargs->bp.size();
 	for(int i = 0; i < ln; i++)
 		if(td4m->PC == cargs->bp.at(i)){
 			in = 1;
@@ -36,7 +45,6 @@ void emu_breakpoint_handler(TD4m_cpu *td4m, cons_args *cargs){
 
 	if(!in)
 		return;
-
 
 	if(!stopped)
 		emu_stop_exec_target(0);
@@ -60,6 +68,23 @@ void emu_console_input(TD4m_cpu *td4m, cons_args *cargs){
 		if((input[i] == ' ') | (i == ln-1)){
 			if((!token.compare("bp")) | (!token.compare("breakpoint"))){
 				state = 1;
+				token.erase();
+				continue;
+			}
+			if((!token.compare("sbp")) | (!token.compare("showbreakpoint"))){
+				if(cargs->bp.empty()){
+					printf("no breakpoints until\n");
+					continue;
+				}
+
+				sort(cargs->bp.begin(), cargs->bp.end());
+				for(unsigned char bp_ : cargs->bp)
+					printf("%hhx ", bp_);
+				printf("\n");
+				continue;
+			}
+			if((!token.compare("rbp")) | (!token.compare("removebreakpoint"))){
+				state = 5;
 				token.erase();
 				continue;
 			}
@@ -127,14 +152,15 @@ void emu_console_input(TD4m_cpu *td4m, cons_args *cargs){
 				cargs->step += static_cast<unsigned char>(data);
 				state = 0;
 				break;
+			case 5:
+				cargs->rbp.push_back(static_cast<unsigned char>(data));
+				break;
 			case 0:
 				break;
 			}
-
 			token.erase();
 		}
 	}
-	sort(cargs->bp.begin(), cargs->bp.end());
 }
 
 void emu_stop_exec_target(int sig){
@@ -194,7 +220,7 @@ void cpu_print_state(TD4m_cpu *td4m, cons_args *cargs){
 
 
 	for(int i=0; i<PRINT_LINES; i++)
-		printf("%2hhx\t%2hhx\n", *(td4m->ROM+i+cargs->rom), *(td4m->RAM+i+cargs->ram));
+		printf("\033[%dm%2hhx\033[0m\t%2hhx\n",(i+cargs->rom==td4m->PC) ? 31 : 0 ,*(td4m->ROM+i+cargs->rom), *(td4m->RAM+i+cargs->ram));
 	printf("\033[%dA\r", PRINT_LINES+1);
 }
 
@@ -232,6 +258,8 @@ void man(){
 			"    \\/__/\\/__,_ /  \\/_/   \\/_/\\/_/\\/_/by spo101 \n\n");
 	printf("Man:\n");
 	printf("bp\tbreakpoint\t<1st> ... <last> args\tMake a breakpoint(s).\n");
+	printf("sbp\tshowbreakpoint\t--\t\t\tShow all breakpoints.\n");
+	printf("rbp\tromovebreakpoint<1st> ... <last> args\tDell n breakpoints.\n");
 	printf("s\tstep\t\t--\t\t\tMake one step.\n");
 	printf("ss\tsteps\t\t<arg>\t\t\tMake n steps.\n");
 	printf("--\tram\t\t<arg>\t\t\tPrint RAM area from <arg> place.\n");

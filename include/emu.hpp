@@ -17,6 +17,7 @@ typedef struct {
 
 typedef struct {
 	vector<unsigned char> bp;
+	vector<unsigned char> rbp;
 	unsigned char rom;
 	unsigned char ram;
 	unsigned char step;
