@@ -1,44 +1,44 @@
 #include "emu.hpp"
 
-void emu_restart_handler(TD4m_cpu *td4m, cons_args *cargs){
-	if(!cargs->restart)
+void emu_restart_handler(TD4m_cpu *td4m, emu_args *eargs){
+	if(!eargs->restart)
 		return;
 
 	td4m->reset();
-	cargs->restart = 0x00;
+	eargs->restart = 0x00;
 }
 
-void emu_step_handler(TD4m_cpu *td4m, cons_args *cargs){
-	if(!cargs->step)
+void emu_step_handler(TD4m_cpu *td4m, emu_args *eargs){
+	if(!eargs->step)
 		return;
 
 	unsigned char cpu_input = 0x00;
-	while(cargs->step){
+	while(eargs->step){
 		cpu_data_input(td4m, &cpu_input);
 		cpu_cycle(td4m, &cpu_input);
 
-		emu_breakpoint_handler(td4m, cargs);
-		cargs->step--;
+		emu_breakpoint_handler(td4m, eargs);
+		eargs->step--;
 	}
 }
 
-void emu_breakpoint_handler(TD4m_cpu *td4m, cons_args *cargs){
+void emu_breakpoint_handler(TD4m_cpu *td4m, emu_args *eargs){
 	int in = 0;
 	int ln = 0;
 
-	ln = cargs->bp.size();
+	ln = eargs->bp.size();
 	if(!ln)
 		return;
-	sort(cargs->bp.begin(), cargs->bp.end());
+	sort(eargs->bp.begin(), eargs->bp.end());
 
-	ln = cargs->rbp.size();
+	ln = eargs->rbp.size();
 	if(ln)
 		for(int i=0; i<ln; i++)
-			cargs->bp.erase(remove(cargs->bp.begin(), cargs->bp.end(), cargs->rbp.at(i)), cargs->bp.end());
+			eargs->bp.erase(remove(eargs->bp.begin(), eargs->bp.end(), eargs->rbp.at(i)), eargs->bp.end());
 
-	ln = cargs->bp.size();
+	ln = eargs->bp.size();
 	for(int i = 0; i < ln; i++)
-		if(td4m->PC == cargs->bp.at(i)){
+		if(td4m->PC == eargs->bp.at(i)){
 			in = 1;
 			break;
 		}
@@ -54,7 +54,7 @@ void emu_breakpoint_handler(TD4m_cpu *td4m, cons_args *cargs){
 	fflush(stdout);
 }
 
-void emu_console_input(TD4m_cpu *td4m, cons_args *cargs){
+void emu_console_input(TD4m_cpu *td4m, emu_args *eargs){
 	string input;
 	string token;
 	printf("> ");
@@ -72,13 +72,13 @@ void emu_console_input(TD4m_cpu *td4m, cons_args *cargs){
 				continue;
 			}
 			if((!token.compare("sbp")) | (!token.compare("showbreakpoint"))){
-				if(cargs->bp.empty()){
+				if(eargs->bp.empty()){
 					printf("no breakpoints until\n");
 					continue;
 				}
 
-				sort(cargs->bp.begin(), cargs->bp.end());
-				for(unsigned char bp_ : cargs->bp)
+				sort(eargs->bp.begin(), eargs->bp.end());
+				for(unsigned char bp_ : eargs->bp)
 					printf("%hhx ", bp_);
 				printf("\n");
 				continue;
@@ -99,7 +99,7 @@ void emu_console_input(TD4m_cpu *td4m, cons_args *cargs){
 				continue;
 			}
 			if((!token.compare("s")) | (!token.compare("step"))){
-				cargs->step += 0x01;
+				eargs->step += 0x01;
 				token.erase();
 				continue;
 			}
@@ -116,13 +116,13 @@ void emu_console_input(TD4m_cpu *td4m, cons_args *cargs){
 			if(!token.compare("exit"))
 				exit(0);
 			if((!token.compare("pcs")) | (!token.compare("printcpustate"))){
-				cpu_print_state(td4m, cargs);
+				cpu_print_state(td4m, eargs);
 				printf("\033[%dB\r", PRINT_LINES+2);
 				continue;
 			}
 			if((!token.compare("r")) | (!token.compare("restart"))){
 				emu_stop_exec_target(0);
-				cargs->restart = 0x01;
+				eargs->restart = 0x01;
 				token.erase();
 				return;
 			}
@@ -138,22 +138,22 @@ void emu_console_input(TD4m_cpu *td4m, cons_args *cargs){
 
 			switch(state){
 			case 1:
-				cargs->bp.push_back(static_cast<unsigned char>(data));
+				eargs->bp.push_back(static_cast<unsigned char>(data));
 				break;
 			case 2:
-				cargs->ram = static_cast<unsigned char>(data);
+				eargs->ram = static_cast<unsigned char>(data);
 				state = 0;
 				break;
 			case 3:
-				cargs->rom = static_cast<unsigned char>(data);
+				eargs->rom = static_cast<unsigned char>(data);
 				state = 0;
 				break;
 			case 4:
-				cargs->step += static_cast<unsigned char>(data);
+				eargs->step += static_cast<unsigned char>(data);
 				state = 0;
 				break;
 			case 5:
-				cargs->rbp.push_back(static_cast<unsigned char>(data));
+				eargs->rbp.push_back(static_cast<unsigned char>(data));
 				break;
 			case 0:
 				break;
@@ -210,17 +210,17 @@ void cpu_cycle(TD4m_cpu *td4m, unsigned char *cpu_input){
 	td4m->next_step();
 }
 
-void cpu_print_state(TD4m_cpu *td4m, cons_args *cargs){
-	printf("ROM\tRAM\n");
-	printf("\t\t\t[  A]=%2hhx [  B]=%2hhx\n", td4m->A, td4m->B);
-	printf("\t\t\t[ PC]=%2hhx [ XY]=%2hhx\n", td4m->PC, td4m->XY);
-	printf("\t\t\t[ CF]=%2hhx [ ZF]=%2hhx\n\n", td4m->CF, td4m->ZF);
-	printf("\t\t\t[out]=%2hhx\n", td4m->output);
+void cpu_print_state(TD4m_cpu *td4m, emu_args *eargs){
+	printf("\rROM\tRAM\n");
+	printf("\r\t\t\t[  A]=%2hhx [  B]=%2hhx\n", td4m->A, td4m->B);
+	printf("\r\t\t\t[ PC]=%2hhx [ XY]=%2hhx\n", td4m->PC, td4m->XY);
+	printf("\r\t\t\t[ CF]=%2hhx [ ZF]=%2hhx\n\n", td4m->CF, td4m->ZF);
+	printf("\r\t\t\t[out]=%2hhx\n", td4m->output);
 	printf("\033[%dA\r", 5);
 
 
 	for(int i=0; i<PRINT_LINES; i++)
-		printf("\033[%dm%2hhx\033[0m\t%2hhx\n",(i+cargs->rom==td4m->PC) ? 31 : 0 ,*(td4m->ROM+i+cargs->rom), *(td4m->RAM+i+cargs->ram));
+		printf("\r\033[%dm%2hhx\033[0m\t%2hhx\n",(i+eargs->rom==td4m->PC) ? 31 : 0 ,*(td4m->ROM+i+eargs->rom), *(td4m->RAM+i+eargs->ram));
 	printf("\033[%dA\r", PRINT_LINES+1);
 }
 
@@ -259,7 +259,7 @@ void man(){
 	printf("Man:\n");
 	printf("bp\tbreakpoint\t<1st> ... <last> args\tMake a breakpoint(s).\n");
 	printf("sbp\tshowbreakpoint\t--\t\t\tShow all breakpoints.\n");
-	printf("rbp\tromovebreakpoint<1st> ... <last> args\tDell n breakpoints.\n");
+	printf("rbp\tromovebreakpoint<1st> ... <last> args\tDel n breakpoints.\n");
 	printf("s\tstep\t\t--\t\t\tMake one step.\n");
 	printf("ss\tsteps\t\t<arg>\t\t\tMake n steps.\n");
 	printf("--\tram\t\t<arg>\t\t\tPrint RAM area from <arg> place.\n");
@@ -282,6 +282,7 @@ void read_args(int cnt_args, char *args[], settings *start_set){
 
 	int Option = 0; 
 	int Option_index = 0;
+	int hints = 0;
 
 	static struct option Long_options[] = {
 		{"auto",	no_argument,		0,	'a'},
@@ -322,11 +323,11 @@ void read_args(int cnt_args, char *args[], settings *start_set){
 				break;
 			case 'c':
 				TD4m_cpu p_td4m;
-				cons_args p_cargs;
-				p_cargs.rom = 0x00;	
-				p_cargs.ram = 0x00;
-				p_cargs.step = 0x00;
-				cpu_print_state(&p_td4m, &p_cargs);
+				emu_args p_eargs;
+				p_eargs.rom = 0x00;	
+				p_eargs.ram = 0x00;
+				p_eargs.step = 0x00;
+				cpu_print_state(&p_td4m, &p_eargs);
 				emu_stop_exec_target(0);
 				break;
 		}

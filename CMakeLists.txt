@@ -5,6 +5,7 @@ set(SRC
 	src/cpu.cpp
 	src/logic.cpp
 	src/emu.cpp
+	src/console.cpp
 )
 
 #Libs for td4m cpu

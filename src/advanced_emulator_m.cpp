@@ -3,10 +3,12 @@
 #include "cpu.hpp"
 #include "logic.hpp"
 #include "emu.hpp"
+#include "console.hpp"
 
 using namespace std;
 
 int stopped = 0;
+int console_show_help = 0;
 
 /*
 to add
@@ -19,23 +21,42 @@ to add
 |-  console handler input
 	|-  all implied setting should influence on emu
 
-
-after ctrl-z input commands mode; commands for showing special mem, 
-		adding bp, sb and so on.
+?rewrite emu_console_input
 */
 
 int main(int argc, char *argv[]){
 
 	signal(SIGTSTP, emu_stop_exec_target);
 
+    static struct termios console;
+    tcgetattr(0, &console);
+
+	console_args cargs[] = {
+		{"bp",	"breakpoint", 			few_arg},
+		{"rbp",	"removebreakpoint",		few_arg},
+		{"", 	"ram", 					one_arg},
+		{"", 	"rom", 					one_arg},
+		{"ss",	"steps", 				one_arg},
+
+		{"sbp",	"showbreakpoint",		no_arg},
+		{"pcs", "printcpustate", 		no_arg},
+		{"c",	"continue", 			no_arg},
+		{"s",	"step", 				no_arg},
+		{"", 	"exit", 				no_arg},
+		{"r", 	"restart", 				no_arg},
+	};
+	int ln = sizeof(cargs)/sizeof(console_args);
+
+	string input;
+
 	TD4m_cpu td4m;
 	unsigned char cpu_input = 0x00;
 	settings start_set;
-	cons_args cargs;
-	cargs.rom = 0x00;	
-	cargs.ram = 0x00;
-	cargs.step = 0x00;
-	cargs.restart = 0x00;
+	emu_args eargs;
+	eargs.rom = 0x00;	
+	eargs.ram = 0x00;
+	eargs.step = 0x00;
+	eargs.restart = 0x00;
 	struct timespec start, stop;
 
 	start_set.mode = 1;
@@ -49,25 +70,29 @@ int main(int argc, char *argv[]){
 	int cycles_done = 0;
 	for(;;){
 
-		emu_restart_handler(&td4m, &cargs);
-		emu_step_handler(&td4m, &cargs);
+		emu_restart_handler(&td4m, &eargs);
+		emu_step_handler(&td4m, &eargs);
 
 		if(stopped){
 			printf("\033[%dB\r", PRINT_LINES+1);
 			printf("\x1b[2K");
 			fflush(stdout);
-			emu_console_input(&td4m, &cargs);
+
+			printf("\r> ");
+			input = console_get_input(&console);
+
+			console_handle_input(input, &cargs[0], ln, &eargs, &td4m);
 			continue;
 		}
 
 		timespec_get(&start, TIME_UTC);
 
 	loop:
-		cpu_print_state(&td4m, &cargs);
+		cpu_print_state(&td4m, &eargs);
 		cpu_data_input(&td4m, &cpu_input);
 		cpu_cycle(&td4m, &cpu_input);
 
-		emu_breakpoint_handler(&td4m, &cargs);
+		emu_breakpoint_handler(&td4m, &eargs);
 
 		if(!start_set.frequency){//in manual mode, processor doesnt need to sleep.
 			cpu_man_mode_next_step();
