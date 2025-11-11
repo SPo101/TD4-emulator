@@ -57,6 +57,7 @@ int main(int argc, char *argv[]){
 	eargs.ram = 0x00;
 	eargs.step = 0x00;
 	eargs.restart = 0x00;
+	cpu_print_set_mnemo(eargs.mnemo);
 	struct timespec start, stop;
 
 	start_set.mode = 1;

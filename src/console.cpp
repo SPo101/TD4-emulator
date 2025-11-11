@@ -18,20 +18,18 @@ string console_get_input(struct termios *orig_termios){
             break;
         }
         else if(c == '\t'){
-            help_find();
+            help_find(str);
         }
         else{
             str += c;
             //handler for tab help func
-            /*
-	        if(sman){
+	        if(console_show_help){
 			    console_show_help++;
 			    console_show_help %= 2;
 		    	printf("\033[%dB\r", 1);
 	        	printf("\r\x1b[2K");
 		    	printf("\033[%dA\r", 1);
 	        }
-	        */
         }
 
 
@@ -42,10 +40,23 @@ string console_get_input(struct termios *orig_termios){
     return str;
 }
 
-void help_find(){
+void help_find(string input){
 	console_show_help++;
     console_show_help %= 2;
-    printf("\n\rman");
+    int ln = input.length();
+    vector<string> args= {"breakpoint", "removebreakpoint", "showbreakpoint", \
+    						"ram", "rom", "step", "steps", \
+    						"printcpustate", "continue", "exit", "restart"};
+
+    int cnt = args.size();
+    string res;
+    for(int i=0; i<cnt; i++)
+    	if(input[0] == args[i][0]){
+    		res += " ";
+    		res += args[i];
+    	}
+
+    printf("\n\rhelp:%s", res.c_str());
     printf("\033[%dA\r", 1);
 }
 

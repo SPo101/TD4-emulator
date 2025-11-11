@@ -8,7 +8,11 @@
 #define MEM_SIZE 16
 
 using namespace std;
+/*
 
+labels support
+
+*/
 int main(int argc, char *argv[]){
 
 	unordered_map<string, unsigned char> mnemo;

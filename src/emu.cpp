@@ -54,115 +54,6 @@ void emu_breakpoint_handler(TD4m_cpu *td4m, emu_args *eargs){
 	fflush(stdout);
 }
 
-void emu_console_input(TD4m_cpu *td4m, emu_args *eargs){
-	string input;
-	string token;
-	printf("> ");
-	getline(cin, input);
-	int state = 0;
-
-	int ln = input.length();
-	for(int i=0; i<ln; i++){
-		if(input[i] != ' ')
-			token.push_back(input[i]);
-		if((input[i] == ' ') | (i == ln-1)){
-			if((!token.compare("bp")) | (!token.compare("breakpoint"))){
-				state = 1;
-				token.erase();
-				continue;
-			}
-			if((!token.compare("sbp")) | (!token.compare("showbreakpoint"))){
-				if(eargs->bp.empty()){
-					printf("no breakpoints until\n");
-					continue;
-				}
-
-				sort(eargs->bp.begin(), eargs->bp.end());
-				for(unsigned char bp_ : eargs->bp)
-					printf("%hhx ", bp_);
-				printf("\n");
-				continue;
-			}
-			if((!token.compare("rbp")) | (!token.compare("removebreakpoint"))){
-				state = 5;
-				token.erase();
-				continue;
-			}
-			if(!token.compare("ram")){
-				state = 2;
-				token.erase();
-				continue;
-			}
-			if(!token.compare("rom")){
-				state = 3;
-				token.erase();
-				continue;
-			}
-			if((!token.compare("s")) | (!token.compare("step"))){
-				eargs->step += 0x01;
-				token.erase();
-				continue;
-			}
-			if((!token.compare("ss")) | (!token.compare("steps"))){
-				state = 4;
-				token.erase();
-				continue;
-			}
-			if((!token.compare("c")) | (!token.compare("continue"))){
-				emu_stop_exec_target(0);
-				token.erase();
-				return;
-			}
-			if(!token.compare("exit"))
-				exit(0);
-			if((!token.compare("pcs")) | (!token.compare("printcpustate"))){
-				cpu_print_state(td4m, eargs);
-				printf("\033[%dB\r", PRINT_LINES+2);
-				continue;
-			}
-			if((!token.compare("r")) | (!token.compare("restart"))){
-				emu_stop_exec_target(0);
-				eargs->restart = 0x01;
-				token.erase();
-				return;
-			}
-
-			unsigned int data = 0;
-			try{
-				data = stoul(token, nullptr, 16);
-			}
-			catch (invalid_argument& e){
-				token.erase();
-				continue;
-			}
-
-			switch(state){
-			case 1:
-				eargs->bp.push_back(static_cast<unsigned char>(data));
-				break;
-			case 2:
-				eargs->ram = static_cast<unsigned char>(data);
-				state = 0;
-				break;
-			case 3:
-				eargs->rom = static_cast<unsigned char>(data);
-				state = 0;
-				break;
-			case 4:
-				eargs->step += static_cast<unsigned char>(data);
-				state = 0;
-				break;
-			case 5:
-				eargs->rbp.push_back(static_cast<unsigned char>(data));
-				break;
-			case 0:
-				break;
-			}
-			token.erase();
-		}
-	}
-}
-
 void emu_stop_exec_target(int sig){
 		stopped++;
 		stopped %= 2;
@@ -210,17 +101,65 @@ void cpu_cycle(TD4m_cpu *td4m, unsigned char *cpu_input){
 	td4m->next_step();
 }
 
+void cpu_print_set_mnemo(unordered_map<unsigned char, string>& mnemo){
+	mnemo[0x00] = "ADD A";
+	mnemo[0x10] = "MOV A,B";
+	mnemo[0x20] = "IN A";
+	mnemo[0x30] = "MOV A";
+	mnemo[0x40] = "MOV B,A";
+	mnemo[0x50] = "ADD B";
+	mnemo[0x60] = "IN B";
+	mnemo[0x70] = "MOV B";
+
+	mnemo[0x80] = "ADD A,B";
+	mnemo[0x81] = "NEG A";
+	mnemo[0x82] = "NOT A";
+	mnemo[0x83] = "OR A,B";
+	mnemo[0x84] = "AND A,B";
+	mnemo[0x85] = "XOR A,B";
+	mnemo[0x86] = "SUB A,B";
+	mnemo[0x87] = "OUT A";
+	mnemo[0x88] = "LD A";
+	mnemo[0x89] = "ST A";
+	mnemo[0x8a] = "LD B";
+	mnemo[0x8b] = "ST B";
+	mnemo[0x8c] = "MOV X,A";
+	mnemo[0x8d] = "MOV Y,A";
+	mnemo[0x8e] = "INC X,Y";
+	mnemo[0x8f] = "JMP X,Y";
+
+	mnemo[0x90] = "OUT B";
+	mnemo[0xa0] = "JZ";
+	mnemo[0xb0] = "OUT";
+	mnemo[0xc0] = "MOV Y";
+	mnemo[0xd0] = "MOV X";
+	mnemo[0xe0] = "JNC";
+	mnemo[0xf0] = "JMP";	
+}
+
 void cpu_print_state(TD4m_cpu *td4m, emu_args *eargs){
-	printf("\rROM\tRAM\n");
-	printf("\r\t\t\t[  A]=%2hhx [  B]=%2hhx\n", td4m->A, td4m->B);
-	printf("\r\t\t\t[ PC]=%2hhx [ XY]=%2hhx\n", td4m->PC, td4m->XY);
-	printf("\r\t\t\t[ CF]=%2hhx [ ZF]=%2hhx\n\n", td4m->CF, td4m->ZF);
-	printf("\r\t\t\t[out]=%2hhx\n", td4m->output);
+	printf("\rDIS_ASM\t\t\tROM\tRAM\n");
+	printf("\r\t\t\t\t\t\t[  A]=%2hhx [  B]=%2hhx\n", td4m->A, td4m->B);
+	printf("\r\t\t\t\t\t\t[ PC]=%2hhx [ XY]=%2hhx\n", td4m->PC, td4m->XY);
+	printf("\r\t\t\t\t\t\t[ CF]=%2hhx [ ZF]=%2hhx\n\n", td4m->CF, td4m->ZF);
+	printf("\r\t\t\t\t\t\t[out]=%2hhx\n", td4m->output);
 	printf("\033[%dA\r", 5);
 
+	unsigned char inst;
+	unsigned char data;
 
-	for(int i=0; i<PRINT_LINES; i++)
-		printf("\r\033[%dm%2hhx\033[0m\t%2hhx\n",(i+eargs->rom==td4m->PC) ? 31 : 0 ,*(td4m->ROM+i+eargs->rom), *(td4m->RAM+i+eargs->ram));
+	for(int i=0; i<PRINT_LINES; i++){
+		inst = *(td4m->ROM+i+eargs->rom);
+		if((inst&0xf0) != 0x80){
+			data = inst & 0x0f;
+			inst &= 0xf0;
+			if(data){
+				printf("\r\033[%dm%s,%hhx\t\t\t%2hhx\033[0m\t%2hhx\n",(i+eargs->rom==td4m->PC) ? 31 : 0 , eargs->mnemo[inst].c_str(), data, *(td4m->ROM+i+eargs->rom), *(td4m->RAM+i+eargs->ram));
+				continue;
+			}
+		}
+		printf("\r\033[%dm%s\t\t\t%2hhx\033[0m\t%2hhx\n",(i+eargs->rom==td4m->PC) ? 31 : 0 , eargs->mnemo[inst].c_str(), *(td4m->ROM+i+eargs->rom), *(td4m->RAM+i+eargs->ram));
+	}
 	printf("\033[%dA\r", PRINT_LINES+1);
 }
 
