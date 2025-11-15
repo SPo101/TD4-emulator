@@ -1,6 +1,6 @@
 #include "console.hpp"
 
-string console_get_input(struct termios *orig_termios){
+string console_get_input(struct termios *orig_termios, console_args *cargs, int cnt){
     console_raw_mode(orig_termios);
 
     string str;
@@ -18,7 +18,7 @@ string console_get_input(struct termios *orig_termios){
             break;
         }
         else if(c == '\t'){
-            help_find(str);
+            help_find(str, cargs, cnt);
         }
         else{
             str += c;
@@ -40,20 +40,16 @@ string console_get_input(struct termios *orig_termios){
     return str;
 }
 
-void help_find(string input){
+void help_find(string input, console_args *cargs, int cnt){
 	console_show_help++;
     console_show_help %= 2;
     int ln = input.length();
-    vector<string> args= {"breakpoint", "removebreakpoint", "showbreakpoint", \
-    						"ram", "rom", "step", "steps", \
-    						"printcpustate", "continue", "exit", "restart"};
 
-    int cnt = args.size();
     string res;
     for(int i=0; i<cnt; i++)
-    	if(input[0] == args[i][0]){
+    	if(cargs[i].lng.find(input) != -1){
     		res += " ";
-    		res += args[i];
+    		res += cargs[i].lng;
     	}
 
     printf("\n\rhelp:%s", res.c_str());

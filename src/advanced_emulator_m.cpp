@@ -44,7 +44,7 @@ int main(int argc, char *argv[]){
 		{"s",	"step", 				no_arg},
 		{"", 	"exit", 				no_arg},
 		{"r", 	"restart", 				no_arg},
-	};
+	};	
 	int ln = sizeof(cargs)/sizeof(console_args);
 
 	string input;
@@ -80,7 +80,7 @@ int main(int argc, char *argv[]){
 			fflush(stdout);
 
 			printf("\r> ");
-			input = console_get_input(&console);
+			input = console_get_input(&console, &cargs[0], ln);
 
 			console_handle_input(input, &cargs[0], ln, &eargs, &td4m);
 			continue;
