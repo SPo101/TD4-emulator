@@ -79,9 +79,7 @@ int main(int argc, char *argv[]){
 			printf("\x1b[2K");
 			fflush(stdout);
 
-			printf("\r> ");
 			input = console_get_input(&console, &cargs[0], ln);
-
 			console_handle_input(input, &cargs[0], ln, &eargs, &td4m);
 			continue;
 		}

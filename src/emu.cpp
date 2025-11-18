@@ -29,14 +29,8 @@ void emu_breakpoint_handler(TD4m_cpu *td4m, emu_args *eargs){
 	ln = eargs->bp.size();
 	if(!ln)
 		return;
+
 	sort(eargs->bp.begin(), eargs->bp.end());
-
-	ln = eargs->rbp.size();
-	if(ln)
-		for(int i=0; i<ln; i++)
-			eargs->bp.erase(remove(eargs->bp.begin(), eargs->bp.end(), eargs->rbp.at(i)), eargs->bp.end());
-
-	ln = eargs->bp.size();
 	for(int i = 0; i < ln; i++)
 		if(td4m->PC == eargs->bp.at(i)){
 			in = 1;

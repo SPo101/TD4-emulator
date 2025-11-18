@@ -1,77 +1,120 @@
 #include "console.hpp"
 
-string console_get_input(struct termios *orig_termios, console_args *cargs, int cnt){
-    console_raw_mode(orig_termios);
+string console_get_input(struct termios *term, console_args *cargs, int cnt){
+    console_raw_mode(term);
 
+	printf("\r> ");
+	int no = 0;
     string str;
+	int pos = -1;
+    string old_str;
+    string token;
+    string new_token;
     for(;;){
-
         char c = getchar();
 
-        if((c == 8) | (c == 127)){
+        switch(c){
+        case 8:
+        case 127:
             str.pop_back();
-
             printf("\r\x1b[2K");
+            console_show_help = 0;
+	        old_str = str;
+	        no = 0;
+        	break;
+
+        case '\r':
+        case '\n':
+            printf("\n\r");
+		    console_cooked_mode(term);
+		    return str;
+
+        case '\t':
+            console_show_help += 1;
+        	break;
+
+        default:
+            str += c;
+            console_show_help = 0;
+	        old_str = str;
+		    no = 0;
+        	break;
         }
-        else if((c == '\n') | (c == '\r')){
-            printf("\n");
-            break;
-        }
-        else if(c == '\t'){
-            help_find(str, cargs, cnt);
+
+
+        //pass last token of string not full one
+        pos = str.rfind(" ");
+        if(pos == -1){
+        	token = old_str;
+        	help_find(&token, cargs, cnt, &no);
+        	str = token;
         }
         else{
-            str += c;
-            //handler for tab help func
-	        if(console_show_help){
-			    console_show_help++;
-			    console_show_help %= 2;
-		    	printf("\033[%dB\r", 1);
-	        	printf("\r\x1b[2K");
-		    	printf("\033[%dA\r", 1);
-	        }
+        	token = old_str.substr(pos+1);
+        	help_find(&token, cargs, cnt, &no);
+        	str.replace(pos+1, str.length() - pos - 1, token);
         }
-
-
-
-        printf("\r> %s", str.c_str());
+        printf("\r\x1b[2K> %s", str.c_str());
     }
-    console_cooked_mode(orig_termios);
     return str;
 }
 
-void help_find(string input, console_args *cargs, int cnt){
-	console_show_help++;
-    console_show_help %= 2;
-    int ln = input.length();
+void help_find(string *input, console_args *cargs, int cnt, int *no){
+	string str;
+	switch(console_show_help){
+	case 0:
+    	printf("\n\r\x1b[2K");
+    	printf("\033[%dA", 1);
+		return;
+	case 1:
+		break;
+
+	case 2:
+	    for(int i = *no; i<cnt; i++){
+	    	if(cargs[i].lng.find(*input) != -1){
+				*input = cargs[i].lng;
+			    *no = i+1;
+			    *no %= cnt;
+				break;
+	    	}
+	    	*no = 0;
+	    }
+
+        console_show_help --;
+		break;
+
+	}
+
+
+    int ln = input->length();
 
     string res;
     for(int i=0; i<cnt; i++)
-    	if(cargs[i].lng.find(input) != -1){
+    	if(cargs[i].lng.find(*input) != -1){
     		res += " ";
     		res += cargs[i].lng;
     	}
 
-    printf("\n\rhelp:%s", res.c_str());
+    printf("\n\x1b[2K\rhelp:%s", res.c_str());
     printf("\033[%dA\r", 1);
 }
 
-void console_cooked_mode(struct termios *orig_termios) {
-    tcgetattr(STDIN_FILENO, orig_termios);
+void console_cooked_mode(struct termios *term) {
+    tcgetattr(STDIN_FILENO, term);
 
-    struct termios raw = *orig_termios;
-    raw.c_iflag |= (BRKINT | ICRNL | INPCK | ISTRIP | IXON);
-    raw.c_oflag |= (OPOST);
-    raw.c_cflag |= (CS8);
-    raw.c_lflag |= (ECHO | ICANON | IEXTEN | ISIG);
+    struct termios cooked = *term;
+    cooked.c_iflag |= (BRKINT | ICRNL | INPCK | ISTRIP | IXON);
+    cooked.c_oflag |= (OPOST);
+    cooked.c_cflag |= (CS8);
+    cooked.c_lflag |= (ECHO | ICANON | IEXTEN | ISIG);
 
-    tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
+    tcsetattr(STDIN_FILENO, TCSAFLUSH, &cooked);
 }
 
-void console_raw_mode(struct termios *orig_termios) {
-    tcgetattr(STDIN_FILENO, orig_termios);
+void console_raw_mode(struct termios *term) {
+    tcgetattr(STDIN_FILENO, term);
 
-    struct termios raw = *orig_termios;
+    struct termios raw = *term;
     raw.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
     raw.c_oflag &= ~(OPOST);
     raw.c_cflag |= (CS8);
@@ -94,27 +137,29 @@ void console_handle_token(string token, console_args *state, int *arg_pos, emu_a
 			return;
 		}
 
-		if(!state->lng.compare("breakpoint")){
+		if(!state->lng.compare("breakpoint"))
 			eargs->bp.push_back(static_cast<unsigned char>(data));
-		}
 		if(!state->lng.compare("removebreakpoint"))
-			eargs->rbp.push_back(static_cast<unsigned char>(data));
+			eargs->bp.erase(remove(eargs->bp.begin(), eargs->bp.end(), static_cast<unsigned char>(data)), eargs->bp.end());
 		if(!(state->lng.compare("ram")))
 			eargs->ram = static_cast<unsigned char>(data);
 		if(!state->lng.compare("rom"))
 			eargs->rom = static_cast<unsigned char>(data);
 		if(!state->lng.compare("steps"))
 			eargs->step += static_cast<unsigned char>(data);
+
+		return;
 	}
 
 	//commands without args processing
 	if(!state->lng.compare("showbreakpoint")){
 		if(eargs->bp.empty()){
-			printf("no breakpoints until\n");
+			printf("\r\x1b[2Kno breakpoints until\n");
 			return;
 		}
 
 		sort(eargs->bp.begin(), eargs->bp.end());
+		printf("\r\x1b[2K");
 		for(unsigned char bp_ : eargs->bp)
 			printf("%hhx ", bp_);
 		printf("\n");
@@ -127,8 +172,10 @@ void console_handle_token(string token, console_args *state, int *arg_pos, emu_a
 		emu_stop_exec_target(0);
 	if(!state->lng.compare("step"))
 		eargs->step += 0x01;
-	if(!state->lng.compare("exit"))
+	if(!state->lng.compare("exit")){
+		printf("\r");
 		exit(0);
+	}
 	if(!state->lng.compare("restart")){
 		emu_stop_exec_target(0);
 		eargs->restart = 0x01;

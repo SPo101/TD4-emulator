@@ -18,7 +18,6 @@ typedef struct {
 typedef struct {
 	unordered_map<unsigned char, string> mnemo;
 	vector<unsigned char> bp;
-	vector<unsigned char> rbp;
 	unsigned char rom;
 	unsigned char ram;
 	unsigned char step;

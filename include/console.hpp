@@ -24,7 +24,7 @@ typedef struct{
 extern int console_show_help;
 
 string console_get_input(struct termios *, console_args *, int);
-void help_find(string, console_args *, int);
+void help_find(string *, console_args *, int, int *);
 void console_cooked_mode(struct termios *);
 void console_raw_mode(struct termios *);
 void console_handle_token(string, console_args *, int *, emu_args *, TD4m_cpu *);
