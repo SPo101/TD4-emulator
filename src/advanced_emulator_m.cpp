@@ -1,3 +1,6 @@
+// Copyright (c) 2025 SPo101
+// Licensed under the MIT License - see LICENSE file for details
+
 #include <iostream>
 #include <time.h>
 #include "cpu.hpp"
@@ -35,16 +38,16 @@ int main(int argc, char *argv[]){
 	console_args cargs[] = {
 		{"bp",	"breakpoint", 			few_arg},
 		{"rbp",	"removebreakpoint",		few_arg},
+		{"sbp",	"showbreakpoint",		no_arg},
 		{"", 	"ram", 					one_arg},
 		{"", 	"rom", 					one_arg},
-		{"ss",	"steps", 				one_arg},
-		{"nt",	"newtarget",			one_arg},
-		{"sbp",	"showbreakpoint",		no_arg},
-		{"pcs", "printcpustate", 		no_arg},
-		{"c",	"continue", 			no_arg},
 		{"s",	"step", 				no_arg},
-		{"", 	"exit", 				no_arg},
+		{"ss",	"steps", 				one_arg},
+		{"pcs", "printcpustate", 		no_arg},
+		{"nt",	"newtarget",			one_arg},
 		{"r", 	"restart", 				no_arg},
+		{"c",	"continue", 			no_arg},
+		{"", 	"exit", 				no_arg},
 	};	
 	int ln = sizeof(cargs)/sizeof(console_args);
 
