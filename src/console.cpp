@@ -1,15 +1,41 @@
 #include "console.hpp"
 
+void console_cooked_mode(struct termios *term) {
+    tcgetattr(STDIN_FILENO, term);
+
+    struct termios cooked = *term;
+    cooked.c_iflag |= (BRKINT | ICRNL | INPCK | ISTRIP | IXON);
+    cooked.c_oflag |= (OPOST);
+    cooked.c_cflag |= (CS8);
+    cooked.c_lflag |= (ECHO | ICANON | IEXTEN | ISIG);
+
+    tcsetattr(STDIN_FILENO, TCSAFLUSH, &cooked);
+}
+
+void console_raw_mode(struct termios *term) {
+    tcgetattr(STDIN_FILENO, term);
+
+    struct termios raw = *term;
+    raw.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
+    raw.c_oflag &= ~(OPOST);
+    raw.c_cflag |= (CS8);
+    raw.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
+
+    raw.c_cc[VMIN] = 1;
+    raw.c_cc[VTIME] = 0;
+
+    tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
+}
+
 string console_get_input(struct termios *term, console_args *cargs, int cnt){
     console_raw_mode(term);
 
 	printf("\r> ");
 	int no = 0;
-    string str;
 	int pos = -1;
+    string str;
     string old_str;
     string token;
-    string new_token;
     for(;;){
         char c = getchar();
 
@@ -61,6 +87,7 @@ string console_get_input(struct termios *term, console_args *cargs, int cnt){
 
 void help_find(string *input, console_args *cargs, int cnt, int *no){
 	string str;
+	string in = *input;
 	switch(console_show_help){
 	case 0:
     	printf("\n\r\x1b[2K");
@@ -82,15 +109,13 @@ void help_find(string *input, console_args *cargs, int cnt, int *no){
 
         console_show_help --;
 		break;
-
 	}
 
-
-    int ln = input->length();
+    int ln = in.length();
 
     string res;
     for(int i=0; i<cnt; i++)
-    	if(cargs[i].lng.find(*input) != -1){
+    	if(cargs[i].lng.find(in) != -1){
     		res += " ";
     		res += cargs[i].lng;
     	}
@@ -99,37 +124,15 @@ void help_find(string *input, console_args *cargs, int cnt, int *no){
     printf("\033[%dA\r", 1);
 }
 
-void console_cooked_mode(struct termios *term) {
-    tcgetattr(STDIN_FILENO, term);
-
-    struct termios cooked = *term;
-    cooked.c_iflag |= (BRKINT | ICRNL | INPCK | ISTRIP | IXON);
-    cooked.c_oflag |= (OPOST);
-    cooked.c_cflag |= (CS8);
-    cooked.c_lflag |= (ECHO | ICANON | IEXTEN | ISIG);
-
-    tcsetattr(STDIN_FILENO, TCSAFLUSH, &cooked);
-}
-
-void console_raw_mode(struct termios *term) {
-    tcgetattr(STDIN_FILENO, term);
-
-    struct termios raw = *term;
-    raw.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
-    raw.c_oflag &= ~(OPOST);
-    raw.c_cflag |= (CS8);
-    raw.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
-
-    raw.c_cc[VMIN] = 1;
-    raw.c_cc[VTIME] = 0;
-
-    tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
-}
-
 void console_handle_token(string token, console_args *state, int *arg_pos, emu_args *eargs, TD4m_cpu *td4m){
 	unsigned int data = 0;
 	//commands with args processing
 	if(*arg_pos == -1){
+		//args are string 
+		if(!state->lng.compare("newtarget"))
+			td4m->write_rom(token);
+
+		//args are unsigned char
 		try{
 			data = stoul(token, nullptr, 16);
 		}

@@ -13,15 +13,11 @@ int console_show_help = 0;
 /*
 to add
 |-	console input
-	|-	?target
-	|-	new target
-	|-	?run
 	|-  after bp ability to step back
 		|- need state dumps for that
 |-  console handler input
 	|-  all implied setting should influence on emu
 
-?rewrite emu_console_input
 */
 
 int main(int argc, char *argv[]){
@@ -31,13 +27,18 @@ int main(int argc, char *argv[]){
     static struct termios console;
     tcgetattr(0, &console);
 
+    /*
+    To add new console arguments
+	|-	add one more console_args in cargs array
+	|-	add handler for new console argument in console_handle_token func
+    */
 	console_args cargs[] = {
 		{"bp",	"breakpoint", 			few_arg},
 		{"rbp",	"removebreakpoint",		few_arg},
 		{"", 	"ram", 					one_arg},
 		{"", 	"rom", 					one_arg},
 		{"ss",	"steps", 				one_arg},
-
+		{"nt",	"newtarget",			one_arg},
 		{"sbp",	"showbreakpoint",		no_arg},
 		{"pcs", "printcpustate", 		no_arg},
 		{"c",	"continue", 			no_arg},

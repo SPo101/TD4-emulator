@@ -132,7 +132,8 @@ void cpu_print_set_mnemo(unordered_map<unsigned char, string>& mnemo){
 }
 
 void cpu_print_state(TD4m_cpu *td4m, emu_args *eargs){
-	printf("\rDIS_ASM\t\t\tROM\tRAM\n");
+
+	printf("\r\x1b[2KDIS_ASM\t\t\tROM\tRAM\n");
 	printf("\r\t\t\t\t\t\t[  A]=%2hhx [  B]=%2hhx\n", td4m->A, td4m->B);
 	printf("\r\t\t\t\t\t\t[ PC]=%2hhx [ XY]=%2hhx\n", td4m->PC, td4m->XY);
 	printf("\r\t\t\t\t\t\t[ CF]=%2hhx [ ZF]=%2hhx\n\n", td4m->CF, td4m->ZF);
@@ -198,6 +199,7 @@ void man(){
 	printf("--\tram\t\t<arg>\t\t\tPrint RAM area from <arg> place.\n");
 	printf("--\trom\t\t<arg>\t\t\tPrint ROM area from <arg> place.\n");
 
+	printf("nt\tnewtarget\t<arg>\t\t\tSet new executable bin file for emulator.\n");
 	printf("r\trestart\t\t--\t\t\tRestarts execution of target\n");
 	printf("pcs\tprintcpustate\t--\t\t\tShow registers state\n");
 
